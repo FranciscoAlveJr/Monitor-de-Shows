@@ -1,0 +1,7 @@
+__pycache__/
+data/
+*.odt
+*.log
+*.txt
+teste.py
+send_gmail.py
