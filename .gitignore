@@ -2,6 +2,6 @@ __pycache__/
 data/
 *.odt
 *.log
-*.txt
+revisões.txt
 teste.py
 send_gmail.py
