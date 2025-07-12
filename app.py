@@ -40,9 +40,10 @@ with st.sidebar:
     )
 
     if 'pesquisar' not in st.session_state:
-        st.session_state.pesquisar = True
+        st.session_state.pesquisar = False
     
     if st.button('Pesquisar', type='primary', disabled=st.session_state.pesquisar):
+        st.session_state.pesquisar = True
         with st.spinner(f'Pesquisando por {genero}...'):
             shows = Shows(genero)
             shows.pesquisar_eventos()

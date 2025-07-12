@@ -24,9 +24,9 @@ class Shows:
         sympla = self.sympla.pesquisar_eventos(self.genero)
         # eventim = self.eventim.pesquisar_eventos()
         clube = self.clube.pesquisar_eventos(self.genero)
-        # uhuu = self.uhuu.pesquisar_eventos(self.genero)
+        uhuu = self.uhuu.pesquisar_eventos(self.genero)
 
-        self.eventos = sympla + clube
+        self.eventos = sympla + clube + uhuu
 
         return self.eventos
     
