@@ -1,7 +1,7 @@
 from scraping import ClubdoIngresso, Eventim, Uhuu, Sympla
 import pandas as pd
 import logging
-from send_gmail import main_api
+# from send_gmail import main_api
 from datetime import datetime
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()])
@@ -40,9 +40,9 @@ class Shows:
 
         self.logger.info(f'Planilha de eventos criada.')
 
-        main_api(f'data/{nome}.xlsx')
+        # main_api(f'data/{nome}.xlsx')
 
-        self.logger.info(f'Email enviado.')
+        # self.logger.info(f'Email enviado.')
 
     def criar_df(self):
         colunas = ['Nome', 'Endereço', 'Data', 'Gênero', 'Link', 'Site']
@@ -52,10 +52,10 @@ class Shows:
 
         return df
     
-    def enviar_email(self):
-        nome = self.nome_planilha()
-        main_api(f'data/{nome}.xlsx')
-        self.logger.info(f'Email enviado.')
+    # def enviar_email(self):
+    #     nome = self.nome_planilha()
+    #     main_api(f'data/{nome}.xlsx')
+    #     self.logger.info(f'Email enviado.')
 
 
 if __name__ == '__main__':
