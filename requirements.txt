@@ -11,6 +11,7 @@ charset-normalizer==3.4.2
 click==8.2.1
 colorama==0.4.6
 cryptography==45.0.5
+et_xmlfile==2.0.0
 firebase-admin==6.9.0
 gitdb==4.0.12
 GitPython==3.1.44
@@ -42,6 +43,7 @@ MarkupSafe==3.0.2
 msgpack==1.1.1
 narwhals==1.47.0
 numpy==2.3.1
+openpyxl==3.1.5
 packaging==25.0
 pandas==2.3.1
 pillow==11.3.0
@@ -73,3 +75,4 @@ tzdata==2025.2
 uritemplate==4.2.0
 urllib3==2.5.0
 watchdog==6.0.0
+xlsxwriter==3.2.5

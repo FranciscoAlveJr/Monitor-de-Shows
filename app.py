@@ -58,9 +58,8 @@ st.markdown('---')
 if 'dados_pesquisa' not in st.session_state:
     st.session_state.dados_pesquisa = None
 
-
 with st.sidebar:
-    st.header('🔎 _Pesquisar_', divider='gray')
+    st.header('🔎 _Pesquisar_', divider='gray', help='Faça pesquisas filtrando por gênero, local ou data, ou faça uma pesquisa sem filtros. Os resultados aparecerão ao lado com visualização e opção de download.')
 
     # st.markdown('---')
 
@@ -96,10 +95,34 @@ with st.sidebar:
         help='Primeiro marque a data de início e, depois, uma data final. Se não quiser uma data final, marque apenas a data inicial, ou deixe como está, e clique fora da caixa.'
     )
 
+    # Pesquisar
+    if 'pesquisar_disabled' not in st.session_state:
+        st.session_state.pesquisar_disabled = False
+    
+    for i, local in enumerate(locais):
+        if len(local.split(' - ')) == 2:
+            locais[i] = local.split(' - ')[1]
+    
+    def pesquisar():
+        st.session_state.pesquisar_disabled = True
+        with st.spinner(f'Pesquisando...'):
+            shows = Shows(genero, locais, data, todos)
+            shows.pesquisar_eventos()
+            df_result = shows.criar_df()
+            st.session_state.dados_pesquisa = df_result
+            st.session_state.genero = genero
+        st.success(f'Foram encontrados {len(df_result)} eventos.')
+        st.session_state.pesquisar_disabled = False
+
+    if st.button('Pesquisar', type='primary', on_click=pesquisar, disabled=st.session_state.pesquisar_disabled):
+        pass
+
     st.markdown('---')
 
     # Email
-    st.subheader('Configurar E-mail:')
+    st.header('📧 _Configurar E-mail_', divider='gray', help='Salve os emails que receberão notificação da pesquisa diária. Abaixo, poderá ver os emails salvos. Também há a opção de apagar os e-mails, basta clicar no ícone de lixeira do lado e o e-mail correspondente será apagado.')
+
+    # st.subheader('Configurar E-mail:')
 
     # try:
     #     with open('data/email.json', 'r') as f:
@@ -164,29 +187,6 @@ with st.sidebar:
         # st.session_state.clear_input = False
 
     st.markdown('---')
-
-    # Pesquisar
-    if 'pesquisar' not in st.session_state:
-        st.session_state.pesquisar = False
-    
-    for i, local in enumerate(locais):
-        if len(local.split(' - ')) == 2:
-            locais[i] = local.split(' - ')[1]
-    
-    if st.button('Pesquisar', type='primary'):
-        st.session_state.pesquisar = True
-        with st.spinner(f'Pesquisando...'):
-            shows = Shows(genero, locais, data, todos)
-            shows.pesquisar_eventos()
-            df_result = shows.criar_df()
-            excel_bytes = excel_to_bytes(df_result)
-            shows.enviar_email(excel_bytes, token_ref)
-
-            st.session_state.dados_pesquisa = df_result
-            st.session_state.genero = genero
-
-        st.success(f'Foram encontrados {len(df_result)} eventos.')
-        st.session_state.pesquisar = False
 
 if st.session_state.dados_pesquisa is not None:
     df = st.session_state.dados_pesquisa
