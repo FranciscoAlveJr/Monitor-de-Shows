@@ -1,6 +1,4 @@
-import pandas as pd
 from datetime import datetime, date
-from dateutil.parser import parse
 
 meses = {
     "janeiro": "January",

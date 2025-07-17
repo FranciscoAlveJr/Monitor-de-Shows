@@ -3,10 +3,8 @@ import pandas as pd
 from datetime import datetime, date
 import io
 from main import Shows
-import json
 import firebase_admin
 from firebase_admin import credentials, firestore
-import ast
 
 locais_list = ['Bar - Blue note', 'Bar - Bourbon street', 'Bar - Cafe Piu Piu', 'Bar - Manifesto bar', 'Casa de Show - Allianz', 'Casa de Show - Audio Club', 'Casa de Show - Bona', 'Casa de Show - Carioca Club', 'Casa de Show - Casa Natura', 'Casa de Show - Casa de Francisca', 'Casa de Show - Espaço Unimed', 'Casa de Show - Tokio Marine Hall', 'Casa de Show - Vibra São Paulo', 'Teatro - J. Safra', 'Teatro Paulo Altran', 'Teatro Sérgio Cardoso', 'Teatro Alpha', 'Teatro B32', 'Teatro Bibi Ferreira', 'Teatro Bradesco', 'Teatro Bravos', 'Teatro Cacilda Becker', 'Teatro Claro', 'Teatro Eva Herz', 'Teatro Faap', 'Teatro Frei Caneca', 'Teatro Gazeta', 'Teatro Liberdade', 'Teatro Municipal', 'Teatro Porto', 'Teatro Procópio Ferreira', 'Teatro Renault', 'Teatro Santander', 'Teatro UOL', 'Theatro São Pedro']
 
