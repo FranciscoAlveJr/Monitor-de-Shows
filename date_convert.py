@@ -1,5 +1,5 @@
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, date
 from dateutil.parser import parse
 
 meses = {
@@ -28,7 +28,7 @@ meses = {
     "nov": "Nov",
     "dez": "Dec"
 }
-def convert_to_datetime(date_str: str) -> datetime:
+def convert_to_datetime(date_str: str) -> str:
     formats = [
         '%d %m - %Y',
         '%d %b - %Y',

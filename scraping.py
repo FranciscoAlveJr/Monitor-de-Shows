@@ -2,7 +2,7 @@ import requests as rq
 from requests import Session
 from bs4 import BeautifulSoup as bs
 from pprint import pprint
-from datetime import datetime
+from datetime import datetime, date
 import logging
 from filtros import definir_genero
 from time import sleep
@@ -12,6 +12,7 @@ import playwright
 from playwright.sync_api import sync_playwright
 from playwright.async_api import async_playwright
 import asyncio
+from lxml import etree
 
 # Club do Ingresso
 # Ingresso rapido
@@ -20,21 +21,35 @@ import asyncio
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()])
 
 class Sympla:
-    def __init__(self) -> None:
+    def __init__(self, generos: list[str], todos: bool) -> None:
         self.session = Session()
         self.logger = logging.getLogger(__name__)
+        self.todos = todos
+        self.generos = generos
+
+        url = 'https://www.sympla.com.br/api/discovery-bff'
+
+        if len(generos) == 0 or len(generos) > 1:
+            gen = '/search-closed/event?&cl=17-festas-e-shows'
+            self.ver_generos = False
+        else:
+            gen = f'/search/event?s={generos[0]}&cl=17-festas-e-shows'
+            self.ver_generos =True
+
+        self.url2 = url + gen
 
         self.eventos = []
 
-        self.url1 = 'https://www.sympla.com.br/eventos/sao-paulo-sp?s={genero}'
-        self.url2 = 'https://www.sympla.com.br/api/discovery-bff/search/event?s={genero}&cl=17-festas-e-shows'
+        # self.url1 = f'https://www.sympla.com.br/eventos/sao-paulo-sp{genero}'
+        # self.url_all = f'https://www.sympla.com.br/api/discovery-bff/search-closed/event?&cl=17-festas-e-shows'
+        # self.url_gen = f'https://www.sympla.com.br/api/discovery-bff/search/event?{genero}cl=17-festas-e-shows'
 
         self.headers = {
             'authority': 'www.sympla.com.br',
             'accept': 'application/json, text/plain, */*',
             'accept-language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
             'sec-ch-ua': '"Google Chrome";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'
         }
 
         self.payload = {
@@ -53,10 +68,13 @@ class Sympla:
         # self.url1 = self.url1.format(genero=self.genero)
         self.url2 = self.url2.format(genero=self.genero)
 
-    def pesquisar_eventos(self, genero: str):
-        self.filtro(genero)
+    def pesquisar_eventos(self, locais: list[str], date_list):
+        self.logger.info(f'Iniciando pesquisa de eventos de em São Paulo no site Sympla...')
 
-        self.logger.info(f'Iniciando pesquisa de eventos de {self.genero} em São Paulo no site Sympla...')
+        ver_local = False
+
+        if len(locais) > 0:
+            ver_local = True
 
         i = 1
         total_paginas = 1
@@ -75,7 +93,7 @@ class Sympla:
                 limite = res.json()['limit']
 
                 if total == 0:
-                    self.logger.info(f'Nenhum evento de {genero} foi encontrado.')
+                    self.logger.info(f'Nenhum evento foi encontrado.')
                     break
 
                 f = total % limite
@@ -84,37 +102,84 @@ class Sympla:
                 else:
                     total_paginas = total // limite
 
-                self.logger.info(f'Foram encontrados {total} eventos de {genero}.')
+                self.logger.info(f'Foram encontrados {total} eventos.')
 
             print(f'Pagina {i}')
 
             for event in data:
+                sleep(1)
+
                 evento = {
                     'nome': '',
                     'local': '',
                     'dataHora': '',
-                    'genero': self.genero,
+                    'genero': '',
                     'link': '',
                     'site': 'Sympla'
                 }
 
+                url = event['url']
+                res2 = self.session.get(url, headers=self.headers)
+                soup = bs(res2.content, 'html.parser')
+
+                try:
+                    descricao = soup.select(
+                        '#__next > section.sc-b281498b-0.ilWENo > div > div > div.sc-537fdfcb-0.bdUbUp')[0].text
+                except IndexError:
+                    headers = {
+                        'authority': 'bff-sales-api-cdn.bileto.sympla.com.br',
+                        'accept': 'application/json',
+                        'accept-language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+                        'sec-ch-ua': '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+                        'X-Api-Key': 'cQkazy2Wc'
+                    }
+                    event_id = url.split('/')[-1]
+                    bileto_url = f'https://bff-sales-api-cdn.bileto.sympla.com.br/api/v1/events/{event_id}'
+                    res3 = self.session.get(bileto_url, headers=headers)
+                    json_res = res3.json()['data']
+                    try:
+                        descricao = json_res['operator_info']
+                    except KeyError:
+                        raw = json_res['description']['raw']
+                        soup2 = bs(raw, 'html.parser')
+                        descricao = soup2.text
+
                 evento['nome'] = event['name']
 
                 local_casa = event['location']['name']
-                endereco = event['location']['address']
-                cidade = event['location']['city']
-                estado = event['location']['state']
-                evento['local'] = local_casa + ' - ' + endereco + ', ' + cidade + ' - ' + estado
+                # endereco = event['location']['address']
+                # cidade = event['location']['city']
+                # estado = event['location']['state']
+                evento['local'] = local_casa
 
                 data = event['start_date_formats']['pt']
                 converted_date = convert_to_datetime(data[data.find(',')+1:data.find(' ·')].strip())
                 evento['dataHora'] = converted_date
+                date_event = datetime.strptime(evento['dataHora'], '%d/%m/%Y').date()
+
                 evento['link'] = event['url']
 
-                self.eventos.append(evento)
+                evento_genero = definir_genero(evento['nome'], descricao)
+                evento['genero'] = evento_genero
 
-                self.logger.info(f'{evento["nome"]}')
-            
+                if evento_genero == 'Outro':
+                    continue
+                else:
+                    if not self.todos:
+                        if self.ver_generos:
+                            if not any(genero for genero in self.generos if genero.lower() == evento_genero.lower()):
+                                continue
+                        if ver_local:
+                            if not any(local for local in locais if local.lower() in evento['local'].lower()):
+                                continue
+                        if len(date_list) == 2:
+                            if date_event < date_list[0] or date_event > date_list[1]:
+                                continue
+
+                    self.eventos.append(evento)
+                    self.logger.info(f'{evento["nome"]}')
+
             if i == total_paginas:
                 break
 
@@ -265,11 +330,11 @@ class Eventim:
                 return self.eventos
 
 class ClubdoIngresso:
-    def __init__(self) -> None:
+    def __init__(self, todos: bool) -> None:
         self.session = Session()
         self.eventos = []
         self.logger = logging.getLogger(__name__)
-
+        self.todos = todos
 
         self.headers = {
             'authority': 'www.clubedoingresso.com',
@@ -286,7 +351,17 @@ class ClubdoIngresso:
         self.url = 'https://www.clubedoingresso.com/categoria/3'
         self.url_estado = 'https://www.clubedoingresso.com/hotsite/filtrarEstados'
 
-    def pesquisar_eventos(self, genero: str):
+    def pesquisar_eventos(self, generos: list[str], locais: list[str], data_list: datetime):
+        if len(generos) == 0:
+            ver_generos = False
+        else:
+            ver_generos = True
+
+        if len(locais) == 0:
+            ver_locais = False
+        else:
+            ver_locais = True        
+
         self.logger.info('Pesquisando Eventos em São Paulo no site Clube do Ingresso...')
 
         res_filtro = self.session.post(self.url_estado, headers=self.headers, data=self.payload)
@@ -332,31 +407,44 @@ class ClubdoIngresso:
             data = soup.find('div', {'class': 'PageEvent__desc'}).text.strip()
             data = data[data.find(',')+1:data.find('-')].strip()
             evento['dataHora'] = convert_to_datetime(data)
+            date_event = datetime.strptime(evento['dataHora'], '%d/%m/%Y').date()
 
             local = soup.find('div', {'class': 'PageEvent__local'})
             teatro = local.find('div', {'class': 'PageEvent__subTitle'}).text.strip()
-            endereco = local.find('div', {'class': 'PageEvent__desc'}).text.strip()
-            evento['local'] = f'{teatro} - {endereco}'
+            # endereco = local.find('div', {'class': 'PageEvent__desc'}).text.strip()
+            evento['local'] = f'{teatro}'
             evento['link'] = link
 
             evento_genero = definir_genero(evento['nome'], descricao)
+            evento['genero'] = evento_genero
 
             if evento_genero == 'Outro':
                 continue
-            elif genero.split()[0] in evento_genero:
-                evento['genero'] = genero
+            else:
+                if not self.todos:
+                    if ver_generos:
+                        if not any(genero for genero in generos if genero.lower() == evento_genero.lower()):
+                            continue
+                    if ver_locais:
+                        if not any(local for local in locais if local.lower() in evento['local'].lower()):
+                            continue
+                    if len(data_list) == 2:
+                        if date_event < data_list[0] or date_event > data_list[1]:
+                            continue
+
                 self.eventos.append(evento)
-                self.logger.info(evento['nome'])
-            
+                self.logger.info(f'{evento["nome"]}')
+
         print('Pesquisa finalizada.')
         return self.eventos
 
     
 class Uhuu():
-    def __init__(self) -> None:
+    def __init__(self, todos: bool) -> None:
         self.session = Session()
         self.eventos = []
         self.logger = logging.getLogger(__name__)
+        self.todos = todos
 
         self.url = 'https://uhuu.com/busca/show'
 
@@ -373,7 +461,17 @@ class Uhuu():
             'page': 1
         }
 
-    def pesquisar_eventos(self, genero: str):
+    def pesquisar_eventos(self, generos: list[str], locais: list[str], data_list: datetime):
+        if len(generos) == 0:
+            ver_generos = False
+        else:
+            ver_generos = True
+
+        if len(locais) == 0:
+            ver_locais = False
+        else:
+            ver_locais = True        
+
         self.logger.info(f'Pesquisando Eventos em São Paulo no site Uhuu...')
 
         links = []
@@ -441,17 +539,29 @@ class Uhuu():
             data = ' '.join(data.split()[:-2])
             data = data.split(' a ')[0].strip()
             evento['dataHora'] = convert_to_datetime(data)
+            date_event = datetime.strptime(evento['dataHora'], '%d/%m/%Y').date()
 
             evento['link'] = link
 
             evento_genero = definir_genero(evento['nome'], descricao)
+            evento['genero'] = evento_genero
 
-            if genero == 'Outro':
+            if evento_genero == 'Outro':
                 continue
-            elif genero.split()[0] in evento_genero:
-                evento['genero'] = evento_genero
+            else:
+                if not self.todos:
+                    if ver_generos:
+                        if not any(genero for genero in generos if genero.lower() == evento_genero.lower()):
+                            continue
+                    if ver_locais:
+                        if not any(local for local in locais if local.lower() in evento['local'].lower()):
+                            continue
+                    if len(data_list) == 2:
+                        if date_event < data_list[0] or date_event > data_list[1]:
+                            continue
+
                 self.eventos.append(evento)
-                self.logger.info(evento['nome'])
+                self.logger.info(f'{evento["nome"]}')
         
         return self.eventos
 
@@ -459,8 +569,9 @@ class Uhuu():
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()])
 
-    # sympla = Sympla()
-    # sympla.pesquisar_eventos('Rock Nacional')
+    sympla = Sympla(['Rock Nacional'], True)
+    print(sympla.pesquisar_eventos('São Paulo', datetime.now()))
+
 
     # clube = ClubdoIngresso()
     # pprint(clube.pesquisar_eventos())
@@ -468,8 +579,8 @@ if __name__ == '__main__':
     # eventim = Eventim('Rock Nacional')
     # print(eventim.pesquisar_eventos())
 
-    uhuu = Uhuu()
-    pprint(uhuu.pesquisar_eventos('Rock Nacional'))
+    # uhuu = Uhuu()
+    # pprint(uhuu.pesquisar_eventos('Rock Nacional'))
 
 # Gêneros:
 # Shows Internacionais

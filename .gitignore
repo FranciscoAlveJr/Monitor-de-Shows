@@ -5,3 +5,6 @@ data/
 revisões.txt
 teste.py
 send_gmail.py
+url.txt
+*.xlsx
+teste.json

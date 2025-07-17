@@ -1,32 +1,35 @@
 from scraping import ClubdoIngresso, Eventim, Uhuu, Sympla
 import pandas as pd
 import logging
-# from send_gmail import main_api
+from send_gmail import main_api
 from datetime import datetime
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()])
 
 
 class Shows:
-    def __init__(self, genero: str) -> None:
+    def __init__(self, genero: list, locais: list, data, todos: bool) -> None:
         self.logger = logging.getLogger(__name__)
+        self.data = data
+        self.locais = locais
+
         self.genero = genero
-        self.clube = ClubdoIngresso()
-        self.eventim = Eventim(genero)
-        self.uhuu = Uhuu()
-        self.sympla = Sympla()
+        self.clube = ClubdoIngresso(todos)
+        # self.eventim = Eventim(genero)
+        self.uhuu = Uhuu(todos)
+        self.sympla = Sympla(genero, todos)
 
     def nome_planilha(self):
         data = datetime.now().strftime('%H%M%S%d%m%Y')
-        return f'{self.genero}_{data}'
+        return f'eventos_{data}'
 
     def pesquisar_eventos(self) -> None:
-        sympla = self.sympla.pesquisar_eventos(self.genero)
+        # sympla = self.sympla.pesquisar_eventos(self.locais, self.data)
         # eventim = self.eventim.pesquisar_eventos()
-        clube = self.clube.pesquisar_eventos(self.genero)
-        uhuu = self.uhuu.pesquisar_eventos(self.genero)
+        # clube = self.clube.pesquisar_eventos(self.genero, self.locais, self.data)
+        uhuu = self.uhuu.pesquisar_eventos(self.genero, self.locais, self.data)
 
-        self.eventos = sympla + clube + uhuu
+        self.eventos = uhuu
 
         return self.eventos
     
@@ -52,13 +55,12 @@ class Shows:
 
         return df
     
-    # def enviar_email(self):
-    #     nome = self.nome_planilha()
-    #     main_api(f'data/{nome}.xlsx')
-    #     self.logger.info(f'Email enviado.')
+    def enviar_email(self, excel_bytes, token_ref):
+        nome = self.nome_planilha()
+        main_api(excel_bytes, nome, token_ref)
+        self.logger.info(f'Email enviado.')
 
 
 if __name__ == '__main__':
     shows = Shows('Rock Nacional')
     shows.pesquisar_eventos()
-    shows.criar_excel_local()
