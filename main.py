@@ -4,12 +4,13 @@ import logging
 from send_gmail import main_api
 from datetime import datetime
 import io
+import os
 import firebase_admin
 from firebase_admin import credentials, firestore
 import streamlit as st
+import json
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()])
-
 
 class Shows:
     def __init__(self, genero: list=[], locais: list=[], data=datetime.now(), todos=True) -> None:
@@ -37,10 +38,13 @@ class Shows:
         buffer.seek(0)
         return buffer.getvalue()
 
-    def get_db(self):
-        if not firebase_admin._apps:
+    def acessar_secrets(self):
+        credenciais = os.getenv('firebase_credentials')
+        if credenciais:
+            creds = json.loads(credenciais)
+        else:
             creds_value = st.secrets['firebase_credentials']
-            creds_dict = {
+            creds = {
                 'type': creds_value['type'],
                 'project_id': creds_value['project_id'],
                 'private_key_id': creds_value['private_key_id'],
@@ -53,6 +57,12 @@ class Shows:
                 'client_x509_cert_url': creds_value['client_x509_cert_url'],
                 'universe_domain': creds_value['universe_domain']
             }
+
+        return creds
+
+    def get_db(self):
+        if not firebase_admin._apps:
+            creds_dict = self.acessar_secrets()
             cred = credentials.Certificate(creds_dict)
             firebase_admin.initialize_app(cred)
         db = firestore.client()
