@@ -1,4 +1,4 @@
-from scraping import ClubdoIngresso, Eventim, Uhuu, Sympla
+from scraping import ClubdoIngresso, Uhuu, Sympla
 import pandas as pd
 import logging
 from send_gmail import main_api
