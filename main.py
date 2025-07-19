@@ -73,10 +73,10 @@ class Shows:
     def pesquisar_eventos(self):
         sympla = self.sympla.pesquisar_eventos(self.locais, self.data)
         # eventim = self.eventim.pesquisar_eventos()
-        # clube = self.clube.pesquisar_eventos(self.genero, self.locais, self.data)
-        # uhuu = self.uhuu.pesquisar_eventos(self.genero, self.locais, self.data)
+        clube = self.clube.pesquisar_eventos(self.genero, self.locais, self.data)
+        uhuu = self.uhuu.pesquisar_eventos(self.genero, self.locais, self.data)
 
-        self.eventos = sympla
+        self.eventos = sympla + clube + uhuu
 
         return self.eventos
     
