@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, date
 import io
-from main import Shows
+from main import Shows, acessar_secrets
 import firebase_admin
 from firebase_admin import credentials, firestore
 
@@ -18,7 +18,6 @@ def excel_to_bytes(df: pd.DataFrame):
     buffer.seek(0)
     return buffer.getvalue()
 
-
 st.set_page_config(
     layout="wide",
     page_icon="🎵",
@@ -28,20 +27,7 @@ st.set_page_config(
 @st.cache_resource
 def get_db():
     if not firebase_admin._apps:
-        creds_value = st.secrets['firebase_credentials']
-        creds_dict = {
-            'type': creds_value['type'],
-            'project_id': creds_value['project_id'],
-            'private_key_id': creds_value['private_key_id'],
-            'private_key': creds_value['private_key'],
-            'client_email': creds_value['client_email'],
-            'client_id': creds_value['client_id'],
-            'auth_uri': creds_value['auth_uri'],
-            'token_uri': creds_value['token_uri'],
-            'auth_provider_x509_cert_url': creds_value['auth_provider_x509_cert_url'],  
-            'client_x509_cert_url': creds_value['client_x509_cert_url'],
-            'universe_domain': creds_value['universe_domain']
-        }
+        creds_dict = acessar_secrets()
         cred = credentials.Certificate(creds_dict)
         firebase_admin.initialize_app(cred)
     db = firestore.client()
