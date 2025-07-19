@@ -12,27 +12,6 @@ import json
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()])
 
-def acessar_secrets():
-    credenciais = os.getenv('firebase_credentials')
-    if credenciais:
-        creds = json.loads(credenciais)
-    else:
-        creds_value = st.secrets['firebase_credentials']
-        creds = {
-            'type': creds_value['type'],
-            'project_id': creds_value['project_id'],
-            'private_key_id': creds_value['private_key_id'],
-            'private_key': creds_value['private_key'],
-            'client_email': creds_value['client_email'],
-            'client_id': creds_value['client_id'],
-            'auth_uri': creds_value['auth_uri'],
-            'token_uri': creds_value['token_uri'],
-            'auth_provider_x509_cert_url': creds_value['auth_provider_x509_cert_url'],  
-            'client_x509_cert_url': creds_value['client_x509_cert_url'],
-            'universe_domain': creds_value['universe_domain']
-        }
-
-    return creds
 
 class Shows:
     def __init__(self, genero: list=[], locais: list=[], data=datetime.now(), todos=True) -> None:
@@ -60,10 +39,32 @@ class Shows:
         buffer.seek(0)
         return buffer.getvalue()
 
+    @staticmethod
+    def acessar_secrets():
+        credenciais = os.getenv('firebase_credentials')
+        if credenciais:
+            creds = json.loads(credenciais)
+        else:
+            creds_value = st.secrets['firebase_credentials']
+            creds = {
+                'type': creds_value['type'],
+                'project_id': creds_value['project_id'],
+                'private_key_id': creds_value['private_key_id'],
+                'private_key': creds_value['private_key'],
+                'client_email': creds_value['client_email'],
+                'client_id': creds_value['client_id'],
+                'auth_uri': creds_value['auth_uri'],
+                'token_uri': creds_value['token_uri'],
+                'auth_provider_x509_cert_url': creds_value['auth_provider_x509_cert_url'],  
+                'client_x509_cert_url': creds_value['client_x509_cert_url'],
+                'universe_domain': creds_value['universe_domain']
+            }
+
+        return creds
 
     def get_db(self):
         if not firebase_admin._apps:
-            creds_dict = acessar_secrets()
+            creds_dict = self.acessar_secrets()
             cred = credentials.Certificate(creds_dict)
             firebase_admin.initialize_app(cred)
         db = firestore.client()

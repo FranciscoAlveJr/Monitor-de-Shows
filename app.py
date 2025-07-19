@@ -2,9 +2,11 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, date
 import io
-from main import Shows, acessar_secrets
+from main import Shows
 import firebase_admin
 from firebase_admin import credentials, firestore
+import os
+import json
 
 locais_list = ['Bar - Blue note', 'Bar - Bourbon street', 'Bar - Cafe Piu Piu', 'Bar - Manifesto bar', 'Casa de Show - Allianz', 'Casa de Show - Audio Club', 'Casa de Show - Bona', 'Casa de Show - Carioca Club', 'Casa de Show - Casa Natura', 'Casa de Show - Casa de Francisca', 'Casa de Show - Espaço Unimed', 'Casa de Show - Tokio Marine Hall', 'Casa de Show - Vibra São Paulo', 'Teatro - J. Safra', 'Teatro Paulo Altran', 'Teatro Sérgio Cardoso', 'Teatro Alpha', 'Teatro B32', 'Teatro Bibi Ferreira', 'Teatro Bradesco', 'Teatro Bravos', 'Teatro Cacilda Becker', 'Teatro Claro', 'Teatro Eva Herz', 'Teatro Faap', 'Teatro Frei Caneca', 'Teatro Gazeta', 'Teatro Liberdade', 'Teatro Municipal', 'Teatro Porto', 'Teatro Procópio Ferreira', 'Teatro Renault', 'Teatro Santander', 'Teatro UOL', 'Theatro São Pedro']
 
@@ -23,6 +25,28 @@ st.set_page_config(
     page_icon="🎵",
     page_title="Monitor de Shows em São Paulo",
     )
+
+def acessar_secrets():
+    credenciais = os.getenv('firebase_credentials')
+    if credenciais:
+        creds = json.loads(credenciais)
+    else:
+        creds_value = st.secrets['firebase_credentials']
+        creds = {
+            'type': creds_value['type'],
+            'project_id': creds_value['project_id'],
+            'private_key_id': creds_value['private_key_id'],
+            'private_key': creds_value['private_key'],
+            'client_email': creds_value['client_email'],
+            'client_id': creds_value['client_id'],
+            'auth_uri': creds_value['auth_uri'],
+            'token_uri': creds_value['token_uri'],
+            'auth_provider_x509_cert_url': creds_value['auth_provider_x509_cert_url'],  
+            'client_x509_cert_url': creds_value['client_x509_cert_url'],
+            'universe_domain': creds_value['universe_domain']
+        }
+
+    return creds
 
 @st.cache_resource
 def get_db():
