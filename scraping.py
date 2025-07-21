@@ -137,7 +137,10 @@ class Sympla:
                     event_id = url.split('/')[-1]
                     bileto_url = f'https://bff-sales-api-cdn.bileto.sympla.com.br/api/v1/events/{event_id}'
                     res3 = self.session.get(bileto_url, headers=headers)
-                    json_res = res3.json()['data']
+                    try:
+                        json_res = res3.json()['data']
+                    except KeyError:
+                        continue
                     try:
                         descricao = json_res['operator_info']
                     except KeyError:
