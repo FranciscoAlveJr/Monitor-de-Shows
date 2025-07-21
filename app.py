@@ -113,6 +113,7 @@ with st.sidebar:
         if len(local.split(' - ')) == 2:
             locais[i] = local.split(' - ')[1]
     
+    @st.cache_data
     def pesquisar():
         st.session_state.pesquisar_disabled = True
         with st.spinner(f'Pesquisando...'):

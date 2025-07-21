@@ -7,6 +7,7 @@ import logging
 from filtros import definir_genero
 from time import sleep
 from date_convert import convert_to_datetime
+from requests.exceptions import ConnectionError
 
 # import playwright
 # from playwright.sync_api import sync_playwright
@@ -122,31 +123,44 @@ class Sympla:
                 res2 = self.session.get(url, headers=self.headers)
                 soup = bs(res2.content, 'html.parser')
 
+                tent = 0
                 try:
                     descricao = soup.select(
                         '#__next > section.sc-b281498b-0.ilWENo > div > div > div.sc-537fdfcb-0.bdUbUp')[0].text
                 except IndexError:
-                    headers = {
-                        'authority': 'bff-sales-api-cdn.bileto.sympla.com.br',
-                        'accept': 'application/json',
-                        'accept-language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-                        'sec-ch-ua': '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"',
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
-                        'X-Api-Key': 'cQkazy2Wc'
-                    }
-                    event_id = url.split('/')[-1]
-                    bileto_url = f'https://bff-sales-api-cdn.bileto.sympla.com.br/api/v1/events/{event_id}'
-                    res3 = self.session.get(bileto_url, headers=headers)
-                    try:
-                        json_res = res3.json()['data']
-                    except KeyError:
-                        continue
-                    try:
-                        descricao = json_res['operator_info']
-                    except KeyError:
-                        raw = json_res['description']['raw']
-                        soup2 = bs(raw, 'html.parser')
-                        descricao = soup2.text
+                    while tent < 5:
+                        try:
+                            headers = {
+                                'authority': 'bff-sales-api-cdn.bileto.sympla.com.br',
+                                'accept': 'application/json',
+                                'accept-language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+                                'sec-ch-ua': '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"',
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+                                'X-Api-Key': 'cQkazy2Wc'
+                            }
+                            event_id = url.split('/')[-1]
+                            bileto_url = f'https://bff-sales-api-cdn.bileto.sympla.com.br/api/v1/events/{event_id}'
+                            res3 = self.session.get(bileto_url, headers=headers)
+                            try:
+                                json_res = res3.json()['data']
+                            except KeyError:
+                                tent = 5
+                                continue
+                            try:
+                                descricao = json_res['operator_info']
+                                break
+                            except KeyError:
+                                raw = json_res['description']['raw']
+                                soup2 = bs(raw, 'html.parser')
+                                descricao = soup2.text
+                                break
+                        except ConnectionError:
+                            tent += 1
+                            sleep(60)
+                            continue
+
+                if tent == 5:
+                    continue
 
                 evento['nome'] = event['name']
 
