@@ -78,6 +78,7 @@ class Shows:
 
         self.eventos = sympla + clube + uhuu
 
+        self.logger.info('PESQUISA FINALIZADA.')
         return self.eventos
     
     def criar_excel_local(self):

@@ -184,9 +184,8 @@ class Sympla:
                     continue
                 else:
                     if not self.todos:
-                        # if self.ver_generos:
-                        #     if not any(genero for genero in self.generos if genero.lower() == evento_genero.lower()):
-                        #         continue
+                        if evento_genero.lower() != self.genero.lower():
+                            continue                        
                         if ver_local:
                             if not any(local for local in locais if local.lower() in evento['local'].lower()):
                                 continue
@@ -204,7 +203,6 @@ class Sympla:
         
         return self.eventos
     
-
 # 
 class ClubdoIngresso:
     def __init__(self, todos: bool) -> None:
@@ -300,7 +298,7 @@ class ClubdoIngresso:
             else:
                 if not self.todos:
                     if ver_generos:
-                        if genero.lower() == evento_genero.lower():
+                        if genero.lower() != evento_genero.lower():
                             continue
                     if ver_locais:
                         if not any(local for local in locais if local.lower() in evento['local'].lower()):
@@ -428,7 +426,7 @@ class Uhuu():
             else:
                 if not self.todos:
                     if ver_generos:
-                        if genero.lower() == evento_genero.lower():
+                        if genero.lower() != evento_genero.lower():
                             continue
                     if ver_locais:
                         if not any(local for local in locais if local.lower() in evento['local'].lower()):
