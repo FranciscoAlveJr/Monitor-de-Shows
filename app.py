@@ -73,16 +73,15 @@ with st.sidebar:
 
     # st.markdown('---')
 
-    todos = st.checkbox('Marque se preferir a pesquisa sem filtros')
+    # todos = st.checkbox('Marque se preferir a pesquisa sem filtros')
 
     st.subheader('Filtrar por:')
     # Gênero
     genero = st.multiselect(
         'Gênero',
         ['Rock Nacional', 'Rock Internacional', 'Pop Nacional', 'Pop Internacional', 'MPB'],
-        placeholder = 'Todos os gêneros',
-        disabled = todos,
-        help = 'Se preferir por todos os gêneros, deixe vazio.'
+        placeholder = 'Escolha um gênero',
+        help = 'Escolha um gênero musical para pesquisar.'
     )
 
     # Local
@@ -90,8 +89,7 @@ with st.sidebar:
         'Local',
         locais_list,
         placeholder = 'Todos os locais',
-        disabled = todos,
-        help = 'Se preferir por todos os locais, deixe vazio.'
+        help = 'Se preferir, escolha um local para pesquisar.'
     )
 
     # Data
@@ -101,7 +99,6 @@ with st.sidebar:
         value=('today',),
         min_value='today',
         format='DD/MM/YYYY',
-        disabled=todos,
         help='Primeiro marque a data de início e, depois, uma data final. Se não quiser uma data final, marque apenas a data inicial, ou deixe como está, e clique fora da caixa.'
     )
 
@@ -115,9 +112,12 @@ with st.sidebar:
     
     @st.cache_data
     def pesquisar():
+        if not genero:
+            st.warning('Por favor, escolha ao menos um gênero.')
+            return
         st.session_state.pesquisar_disabled = True
         with st.spinner(f'Pesquisando...'):
-            shows = Shows(genero, locais, data, todos)
+            shows = Shows(genero, locais, data, False)
             shows.pesquisar_eventos()
             df_result = shows.criar_df()
             st.session_state.dados_pesquisa = df_result
