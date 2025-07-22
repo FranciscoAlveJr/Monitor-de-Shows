@@ -66,7 +66,7 @@ st.title("Monitor de Shows em São Paulo")
 st.markdown('---')
 
 if 'dados_pesquisa' not in st.session_state:
-    st.session_state.dados_pesquisa = None
+    st.session_state.dados_pesquisa = pd.DataFrame()
 
 with st.sidebar:
     st.header('🔎 _Pesquisar_', divider='gray', help='Faça pesquisas filtrando por gênero, local ou data, ou faça uma pesquisa sem filtros. Os resultados aparecerão ao lado com visualização e opção de download.')
@@ -77,7 +77,7 @@ with st.sidebar:
 
     st.subheader('Filtrar por:')
     # Gênero
-    genero = st.multiselect(
+    genero = st.selectbox(
         'Gênero',
         ['Rock Nacional', 'Rock Internacional', 'Pop Nacional', 'Pop Internacional', 'MPB'],
         placeholder = 'Escolha um gênero',
@@ -110,23 +110,20 @@ with st.sidebar:
         if len(local.split(' - ')) == 2:
             locais[i] = local.split(' - ')[1]
     
-    @st.cache_data
     def pesquisar():
-        if not genero:
-            st.warning('Por favor, escolha ao menos um gênero.')
-            return
+        shows = Shows(genero, locais, data, False)
+        shows.pesquisar_eventos()
+        df_result = shows.criar_df()
+        return df_result
+
+    if st.button('Pesquisar', type='primary', disabled=st.session_state.pesquisar_disabled):
         st.session_state.pesquisar_disabled = True
         with st.spinner(f'Pesquisando...'):
-            shows = Shows(genero, locais, data, False)
-            shows.pesquisar_eventos()
-            df_result = shows.criar_df()
+            df_result = pesquisar()
             st.session_state.dados_pesquisa = df_result
             st.session_state.genero = genero
         st.success(f'Foram encontrados {len(df_result)} eventos.')
         st.session_state.pesquisar_disabled = False
-
-    if st.button('Pesquisar', type='primary', on_click=pesquisar, disabled=st.session_state.pesquisar_disabled):
-        pass
 
     st.markdown('---')
 
@@ -199,7 +196,7 @@ with st.sidebar:
 
     st.markdown('---')
 
-if st.session_state.dados_pesquisa is not None:
+if not st.session_state.dados_pesquisa.empty:
     df = st.session_state.dados_pesquisa
 
     st.subheader('🎤 Resultados da Pesquisa')

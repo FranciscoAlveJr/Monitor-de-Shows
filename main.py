@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 
 class Shows:
-    def __init__(self, genero: list=[], locais: list=[], data=datetime.now(), todos=True) -> None:
+    def __init__(self, genero: str, locais: list=[], data=datetime.now(), todos=True) -> None:
         self.logger = logging.getLogger(__name__)
         self.data = data
         self.locais = locais
@@ -105,7 +105,7 @@ class Shows:
 
 
 if __name__ == '__main__':
-    shows = Shows(genero=['Rock Nacional'])
+    shows = Shows(genero='')
     shows.pesquisar_eventos()
     df = shows.criar_df()
     excel_bytes = shows.excel_to_bytes(df)

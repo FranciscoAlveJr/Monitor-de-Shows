@@ -22,20 +22,20 @@ from lxml import etree
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()])
 
 class Sympla:
-    def __init__(self, generos: list[str], todos: bool) -> None:
+    def __init__(self, genero: str, todos: bool) -> None:
         self.session = Session()
         self.logger = logging.getLogger(__name__)
         self.todos = todos
-        self.generos = generos
+        self.genero = genero
 
         url = 'https://www.sympla.com.br/api/discovery-bff'
 
-        if len(generos) == 0 or len(generos) > 1:
+        if not genero:
             gen = '/search-closed/event?&cl=17-festas-e-shows'
             self.ver_generos = False
         else:
-            gen = f'/search/event?s={generos[0]}&cl=17-festas-e-shows'
-            self.ver_generos =True
+            gen = f'/search/event?s={genero}&cl=17-festas-e-shows'
+            self.ver_generos = True
 
         self.url2 = url + gen
 
@@ -184,9 +184,9 @@ class Sympla:
                     continue
                 else:
                     if not self.todos:
-                        if self.ver_generos:
-                            if not any(genero for genero in self.generos if genero.lower() == evento_genero.lower()):
-                                continue
+                        # if self.ver_generos:
+                        #     if not any(genero for genero in self.generos if genero.lower() == evento_genero.lower()):
+                        #         continue
                         if ver_local:
                             if not any(local for local in locais if local.lower() in evento['local'].lower()):
                                 continue
@@ -228,8 +228,8 @@ class ClubdoIngresso:
         self.url = 'https://www.clubedoingresso.com/categoria/3'
         self.url_estado = 'https://www.clubedoingresso.com/hotsite/filtrarEstados'
 
-    def pesquisar_eventos(self, generos: list[str], locais: list[str], data_list: datetime):
-        if len(generos) == 0:
+    def pesquisar_eventos(self, genero: str, locais: list[str], data_list: datetime):
+        if not genero:
             ver_generos = False
         else:
             ver_generos = True
@@ -300,7 +300,7 @@ class ClubdoIngresso:
             else:
                 if not self.todos:
                     if ver_generos:
-                        if not any(genero for genero in generos if genero.lower() == evento_genero.lower()):
+                        if genero.lower() == evento_genero.lower():
                             continue
                     if ver_locais:
                         if not any(local for local in locais if local.lower() in evento['local'].lower()):
@@ -338,8 +338,8 @@ class Uhuu():
             'page': 1
         }
 
-    def pesquisar_eventos(self, generos: list[str], locais: list[str], data_list: datetime):
-        if len(generos) == 0:
+    def pesquisar_eventos(self, genero: str, locais: list[str], data_list: datetime):
+        if not genero:
             ver_generos = False
         else:
             ver_generos = True
@@ -428,7 +428,7 @@ class Uhuu():
             else:
                 if not self.todos:
                     if ver_generos:
-                        if not any(genero for genero in generos if genero.lower() == evento_genero.lower()):
+                        if genero.lower() == evento_genero.lower():
                             continue
                     if ver_locais:
                         if not any(local for local in locais if local.lower() in evento['local'].lower()):
