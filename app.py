@@ -111,19 +111,16 @@ with st.sidebar:
             locais[i] = local.split(' - ')[1]
     
     def pesquisar():
-        shows = Shows(genero, locais, data, False)
-        shows.pesquisar_eventos()
-        df_result = shows.criar_df()
-        return df_result
-
-    if st.button('Pesquisar', type='primary', disabled=st.session_state.pesquisar_disabled):
-        st.session_state.pesquisar_disabled = True
-        with st.spinner(f'Pesquisando...'):
-            df_result = pesquisar()
+        with st.spinner(f'Pesquisando... isso pode levar alguns minutos...'):
+            shows = Shows(genero, locais, data, False)
+            shows.pesquisar_eventos()
+            df_result = shows.criar_df()
             st.session_state.dados_pesquisa = df_result
             st.session_state.genero = genero
         st.success(f'Foram encontrados {len(df_result)} eventos.')
-        st.session_state.pesquisar_disabled = False
+
+    if st.button('Pesquisar', type='primary', on_click=pesquisar):
+        pass
 
     st.markdown('---')
 

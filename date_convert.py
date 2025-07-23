@@ -54,5 +54,5 @@ def convert_to_datetime(date_str: str) -> str:
     # return date_str
 
 if __name__=="__main__":
-    date = convert_to_datetime('13 Jul - 2025')
+    date = convert_to_datetime('2025-07-25')
     print(date)

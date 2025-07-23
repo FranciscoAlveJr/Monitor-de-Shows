@@ -1,4 +1,4 @@
-from scraping import ClubdoIngresso, Uhuu, Sympla
+from scraping import ClubdoIngresso, Uhuu, Sympla, Eventim
 import pandas as pd
 import logging
 from send_gmail import main_api
@@ -21,7 +21,7 @@ class Shows:
 
         self.genero = genero
         self.clube = ClubdoIngresso(todos)
-        # self.eventim = Eventim(genero)
+        self.eventim = Eventim(genero, todos)
         self.uhuu = Uhuu(todos)
         self.sympla = Sympla(genero, todos)
 
@@ -72,18 +72,18 @@ class Shows:
 
     def pesquisar_eventos(self):
         sympla = self.sympla.pesquisar_eventos(self.locais, self.data)
-        # eventim = self.eventim.pesquisar_eventos()
+        eventim = self.eventim.pesquisar_eventos(self.locais, self.data)
         clube = self.clube.pesquisar_eventos(self.genero, self.locais, self.data)
         uhuu = self.uhuu.pesquisar_eventos(self.genero, self.locais, self.data)
 
-        self.eventos = sympla + clube + uhuu
+        self.eventos = sympla + clube + uhuu + eventim
 
         self.logger.info('PESQUISA FINALIZADA.')
         return self.eventos
     
     def criar_excel_local(self):
         nome = self.nome_planilha()
-        colunas = ['Nome', 'Endereço', 'Data e Hora', 'Gênero', 'Link', 'Site']
+        colunas = ['Nome', 'Local', 'Data', 'Gênero', 'Link', 'Site']
         df = pd.DataFrame(self.eventos)
         df.columns = colunas
         with pd.ExcelWriter(f'data/{nome}.xlsx', engine='xlsxwriter') as writer:
@@ -92,7 +92,7 @@ class Shows:
         self.logger.info(f'Planilha de eventos criada.')
 
     def criar_df(self):
-        colunas = ['Nome', 'Endereço', 'Data', 'Gênero', 'Link', 'Site']
+        colunas = ['Nome', 'Local', 'Data', 'Gênero', 'Link', 'Site']
         df = pd.DataFrame(self.eventos)
         df.columns = colunas
         df['Data'] = pd.to_datetime(df['Data'], format='%d/%m/%Y')
