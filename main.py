@@ -12,7 +12,6 @@ import json
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()])
 
-
 class Shows:
     def __init__(self, genero: str, locais: list=[], data=datetime.now(), todos=True) -> None:
         self.logger = logging.getLogger(__name__)
@@ -114,3 +113,5 @@ if __name__ == '__main__':
     token_ref = db.collection('streamlit_secrets').document('cnXygf2mVmWqJwvmgQH2')
     emails_ref = db.collection('streamlit_secrets').document('emails_json')
     shows.enviar_email(excel_bytes, token_ref, emails_ref)
+
+# fel.cav.lima@gmail.com

@@ -5,7 +5,7 @@ name: run main.py
 
 on:
   schedule:
-    - cron: '0 16 * * *'
+    - cron: '0 21 * * *'
 
 permissions:
   contents: read

@@ -1,12 +1,14 @@
 from google.auth.transport.requests import Request
+from google.auth.exceptions import RefreshError
 from google.oauth2.credentials import Credentials
-# from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import base64
 import json
 from datetime import datetime
 import logging
+# from main import Shows
 
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
@@ -24,7 +26,7 @@ class GmailSenderAPI:
             'https://www.googleapis.com/auth/gmail.compose',
             'https://www.googleapis.com/auth/gmail.send'
         ]
-        # self.credentials_file = 'data/client_secret.json'
+        self.credentials_file = 'data/client_secret.json'
         # self.token_file = 'data/token.json'
         self.token_ref = token_ref
         self.emails_ref = emails_ref
@@ -54,21 +56,25 @@ class GmailSenderAPI:
         # if os.path.exists(self.token_file):
         #     creds = Credentials.from_authorized_user_file(self.token_file, self.SCOPES)
         
+        def logar():
+            flow = InstalledAppFlow.from_client_secrets_file(
+                self.credentials_file, self.SCOPES)
+            creds = flow.run_local_server(port=0)
+            return creds
+
         # Se não há credenciais válidas, faz login
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
                 self.logger.info("Token expirado. Atualizando...")
-                creds.refresh(Request())
-                self.save_credentials(creds)
-                self.logger.info("Token atualizado e salvo.")
-            # else:
-            #     flow = InstalledAppFlow.from_client_secrets_file(
-            #         self.credentials_file, self.SCOPES)
-            #     creds = flow.run_local_server(port=0)
+                try:
+                    creds.refresh(Request())
+                except RefreshError:
+                    creds = logar()
+            else:
+                creds = logar()
             
-            # # Salva as credenciais
-            # with open(self.token_file, 'w') as token:
-            #     token.write(creds.to_json())
+            self.save_credentials(creds)
+            self.logger.info("Token atualizado e salvo.")
         
         try:
             self.service = build('gmail', 'v1', credentials=creds)
@@ -165,5 +171,11 @@ def main_api(excel_bytes, nome_planilha, token_ref, emails_ref):
         gmail_api.enviar_email()
         
 
-if __name__ == "__main__":
-    main_api(r'Rock Internacional_12072025.xlsx')
+# if __name__ == "__main__":
+#     shows = Shows(genero='')
+
+#     db = shows.get_db()
+#     token_ref = db.collection('streamlit_secrets').document('cnXygf2mVmWqJwvmgQH2')
+#     emails_ref = db.collection('streamlit_secrets').document('emails_json')
+
+#     main_api(r'Rock Internacional_12072025.xlsx', 'Rock Internacional', token_ref, emails_ref)

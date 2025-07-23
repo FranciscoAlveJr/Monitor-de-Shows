@@ -19,6 +19,7 @@ google-api-core==2.25.1
 google-api-python-client==2.176.0
 google-auth==2.40.3
 google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.2
 google-cloud-core==2.4.3
 google-cloud-firestore==2.21.0
 google-cloud-storage==3.2.0
@@ -43,6 +44,7 @@ MarkupSafe==3.0.2
 msgpack==1.1.1
 narwhals==1.47.0
 numpy==2.3.1
+oauthlib==3.3.1
 openpyxl==3.1.5
 packaging==25.0
 pandas==2.3.1
@@ -60,6 +62,7 @@ python-dateutil==2.9.0.post0
 pytz==2025.2
 referencing==0.36.2
 requests==2.32.4
+requests-oauthlib==2.0.0
 rpds-py==0.26.0
 rsa==4.9.1
 six==1.17.0
