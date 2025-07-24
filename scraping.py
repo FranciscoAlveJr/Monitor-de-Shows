@@ -265,7 +265,10 @@ class ClubdoIngresso:
             res2 = self.session.get(link, headers=self.headers)
             soup = bs(res2.content, 'html.parser')
 
-            descricao = soup.find('div', {'class': 'EventDescricao'}).text.strip()
+            try:
+                descricao = soup.find('div', {'class': 'EventDescricao'}).text.strip()
+            except AttributeError:
+                descricao = ''
 
             evento = {
                 'nome': '',
