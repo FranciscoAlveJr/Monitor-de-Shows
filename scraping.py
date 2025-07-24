@@ -1,8 +1,8 @@
 import requests as rq
 from requests import Session
 from bs4 import BeautifulSoup as bs
-from pprint import pprint
-from datetime import datetime, date
+# from pprint import pprint
+from datetime import datetime
 import logging
 from filtros import definir_genero
 from time import sleep
@@ -13,7 +13,8 @@ from requests.exceptions import ConnectionError
 # Ingresso rapido
 # Uhuu
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()])
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()], encoding='utf-8')
+
 
 class Sympla:
     def __init__(self, genero: str, todos: bool) -> None:
@@ -63,7 +64,7 @@ class Sympla:
         # self.url1 = self.url1.format(genero=self.genero)
         self.url2 = self.url2.format(genero=self.genero)
 
-    def pesquisar_eventos(self, locais: list[str], date_list):
+    def pesquisar_eventos(self, locais: list[str], date_list: list):
         self.logger.info(f'Iniciando pesquisa de eventos de em São Paulo no site Sympla...')
 
         ver_local = False
@@ -75,13 +76,18 @@ class Sympla:
         total_paginas = 1
 
         while True:
+            sleep(1)
             if i == 1:
                 page = ''
             else:
                 page = f'&page={i}'
 
             res = self.session.get(self.url2+page, headers=self.headers, cookies=self.cookies)
-            data = res.json()['data']
+            try:
+                data = res.json()['data']
+            except KeyError:
+                i += 1
+                continue
 
             if i == 1:
                 total = res.json()['total']
@@ -99,7 +105,6 @@ class Sympla:
 
                 self.logger.info(f'Foram encontrados {total} eventos.')
 
-            print(f'Pagina {i}')
 
             for event in data:
                 sleep(1)
@@ -220,7 +225,7 @@ class ClubdoIngresso:
         self.url = 'https://www.clubedoingresso.com/categoria/3'
         self.url_estado = 'https://www.clubedoingresso.com/hotsite/filtrarEstados'
 
-    def pesquisar_eventos(self, genero: str, locais: list[str], data_list: datetime):
+    def pesquisar_eventos(self, genero: str, locais: list[str], data_list: list):
         if not genero:
             ver_generos = False
         else:
@@ -304,7 +309,7 @@ class ClubdoIngresso:
                 self.eventos.append(evento)
                 self.logger.info(f'{evento["nome"]}')
 
-        print('Pesquisa finalizada.')
+        self.logger.info('PESQUISA NO CLUBE DO INGRESSO FINALIZADA.')
         return self.eventos
 
     
@@ -330,7 +335,7 @@ class Uhuu():
             'page': 1
         }
 
-    def pesquisar_eventos(self, genero: str, locais: list[str], data_list: datetime):
+    def pesquisar_eventos(self, genero: str, locais: list[str], data_list: list):
         if not genero:
             ver_generos = False
         else:
@@ -471,7 +476,7 @@ class Eventim:
         }
 
     
-    def pesquisar_eventos(self, locais: list[str], data_list: datetime):
+    def pesquisar_eventos(self, locais: list[str], data_list: list):
         if len(locais) == 0:
             ver_locais = False
         else:
@@ -486,7 +491,6 @@ class Eventim:
         while True:
             sleep(1)
             i += 1
-            print(f'Pagina {i}')
 
             if i > 1:
                 self.payload['page'] = i
@@ -511,6 +515,10 @@ class Eventim:
 
                 num_produtos = show['productCount']
                 produtos = show['products']
+                try:
+                    genero = show['categories'][1]['name']
+                except (IndexError, KeyError):
+                    genero = "Outro"
 
                 for produto in produtos:
                     evento['nome'] = produto['name']
@@ -520,10 +528,7 @@ class Eventim:
                     date_event = datetime.strptime(evento['dataHora'], '%d/%m/%Y').date()
 
                     evento['link'] = produto['link']
-                    try:
-                        evento['genero'] = self.genero.split('|')[1]
-                    except IndexError:
-                        evento['genero'] = self.genero
+                    evento['genero'] = genero
 
                     local = produto['typeAttributes']['liveEntertainment']['location']['name']
                     evento['local'] = local
@@ -545,6 +550,125 @@ class Eventim:
                 self.logger.info(f'PESQUISA NO EVENTIM FINALIZADA.')
                 return self.eventos
 
+class Ticket360:
+    def __init__(self, genero: str, todos: bool) -> None:
+        self.session = Session()
+        self.eventos = []
+        self.logger = logging.getLogger(__name__)
+        self.genero = genero
+        self.todos = todos
+
+        self.url = r'https://www.ticket360.com.br/eventos/pesquisar?s=sao+paulo'
+
+        self.headers = {
+            'authority': 'www.ticket360.com.br',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Sec-Ch-Ua': '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'
+        }
+
+    def pesquisar_eventos(self, locais: list[str], data_list: list):
+        if len(locais) == 0:
+            ver_locais = False
+        else:
+            ver_locais = True
+
+        self.logger.info(f'Iniciando pesquisa de eventos em São Paulo no site Ticket360...')
+
+        # OS EVENTOS EM SÃO PAULO
+        self.logger.info('Buscando por eventos em São Paulo...')
+        res = rq.get(self.url, headers=self.headers)
+        soup = bs(res.content, 'html.parser')
+
+        all_eventos = soup.find_all('a', {'class': 'event-click'})
+
+        sleep(1)
+        # EVENTOS DO GÊNERO
+        if self.todos:
+            generos_dict = {'rock': [], 'pop': [], 'mpb': [], 'pop-rock': []}
+            generos = list(generos_dict.keys())
+
+            for genero in generos:
+                self.logger.info(f'Buscando por eventos de {genero}...')
+                self.url_gen = f'https://www.ticket360.com.br/eventos/pesquisar?s={genero}'
+                sleep(1)
+                res2 = rq.get(self.url_gen, headers=self.headers)
+                soup2 = bs(res2.content, 'html.parser')
+
+                gen_eventos = soup2.find_all('a', {'class': 'event-click'})
+                gen_eventos = [evento.get('data-id') for evento in gen_eventos]
+                generos_dict[genero] = gen_eventos
+        else:
+            genero = self.genero.split()[0].lower() if len(self.genero.split()) > 1 else self.genero.lower()
+
+            self.url_gen = f'https://www.ticket360.com.br/eventos/pesquisar?s={genero}'
+            res2 = rq.get(self.url_gen, headers=self.headers)
+            soup2 = bs(res2.content, 'html.parser')
+
+            gen_eventos = soup2.find_all('a', {'class': 'event-click'})
+            gen_eventos = [evento.get('data-id') for evento in gen_eventos]
+
+        for evento in all_eventos:
+            endereco = evento.find('span', {'class': 'card-endereco'}).text.strip()
+            estado = endereco.split('/')[1].strip().lower()
+            if estado != 'sp':
+                continue
+
+
+            evento_dict = {
+                'nome': '',
+                'local': '',
+                'dataHora': '',
+                'genero': '',
+                'link': '',
+                'site': 'Ticket360'
+            }
+
+            nome = evento.find('span', {'class': 'card-name-evento'})
+            nome = nome.text.strip().replace('\n', '')
+            local = evento.find('div', {'class': 'row header-card-event'})
+            local = local.text.strip().replace('\n', '')
+            data = evento.find('div', {'class': 'row data-calendar'})
+            data = data.text.strip().replace('\n', '').split()
+            data = f'{data[1]} {data[0]}'
+            data = convert_to_datetime(data)
+            date_event = datetime.strptime(data, '%d/%m/%Y').date()
+
+            title = evento.get('data-id')
+            if not self.todos:
+                if title not in gen_eventos:
+                    continue
+                if ver_locais:
+                    if not any(local_e for local_e in locais if local_e.lower() in local.lower()):
+                        continue
+                if len(data_list) == 2:
+                    if date_event < data_list[0] or date_event > data_list[1]:
+                        continue
+            else:
+                for genero, gen_eventos in generos_dict.items():
+                    if title in gen_eventos:
+                        self.genero = genero
+                        break
+                    else:
+                        self.genero = "outro"
+            
+            if self.genero == 'outro':
+                continue
+
+            evento_dict['nome'] = nome
+            evento_dict['local'] = local
+            evento_dict['dataHora'] = data
+            evento_dict['genero'] = self.genero.title()
+            evento_dict['link'] = f"https://www.ticket360.com.br/{evento.get('href')}"
+
+            self.eventos.append(evento_dict)
+
+            self.logger.info(nome)
+
+        self.logger.info('PESQUISA NO TICKET360 CONCLUIDA.')
+        return self.eventos
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()])
@@ -555,11 +679,16 @@ if __name__ == '__main__':
     # clube = ClubdoIngresso()
     # pprint(clube.pesquisar_eventos())
 
-    eventim = Eventim('Rock Nacional', True)
-    pprint(eventim.pesquisar_eventos([], datetime.now()))
+    # eventim = Eventim('Rock Nacional', True)
+    # pprint(eventim.pesquisar_eventos([], datetime.now()))
 
     # uhuu = Uhuu(True)
     # pprint(uhuu.pesquisar_eventos([], [], datetime.now()))
+
+    ticket360 = Ticket360('', True)
+    print(ticket360.pesquisar_eventos([], [datetime.now()]))
+
+
 
 # Gêneros:
 # Shows Internacionais

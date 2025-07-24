@@ -1,4 +1,4 @@
-from scraping import ClubdoIngresso, Uhuu, Sympla, Eventim
+from scraping import ClubdoIngresso, Uhuu, Sympla, Eventim, Ticket360
 import pandas as pd
 import logging
 from send_gmail import main_api
@@ -13,7 +13,7 @@ import json
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()])
 
 class Shows:
-    def __init__(self, genero: str, locais: list=[], data=datetime.now(), todos=True) -> None:
+    def __init__(self, genero: str, locais: list=[], data=[datetime.now()], todos=True) -> None:
         self.logger = logging.getLogger(__name__)
         self.data = data
         self.locais = locais
@@ -23,6 +23,7 @@ class Shows:
         self.eventim = Eventim(genero, todos)
         self.uhuu = Uhuu(todos)
         self.sympla = Sympla(genero, todos)
+        self.ticket360 = Ticket360(genero, todos)
 
     def nome_planilha(self):
         data = datetime.now().strftime('%H%M%S%d%m%Y')
@@ -74,8 +75,9 @@ class Shows:
         eventim = self.eventim.pesquisar_eventos(self.locais, self.data)
         clube = self.clube.pesquisar_eventos(self.genero, self.locais, self.data)
         uhuu = self.uhuu.pesquisar_eventos(self.genero, self.locais, self.data)
+        ticket360 = self.ticket360.pesquisar_eventos(self.locais, self.data)
 
-        self.eventos = sympla + clube + uhuu + eventim
+        self.eventos = sympla + clube + uhuu + eventim + ticket360
 
         self.logger.info('PESQUISA FINALIZADA.')
         return self.eventos
@@ -114,4 +116,5 @@ if __name__ == '__main__':
     emails_ref = db.collection('streamlit_secrets').document('emails_json')
     shows.enviar_email(excel_bytes, token_ref, emails_ref)
 
-# fel.cav.lima@gmail.com
+
+'fel.cav.lima@gmail.com'

@@ -26,33 +26,49 @@ meses = {
     "nov": "Nov",
     "dez": "Dec"
 }
-def convert_to_datetime(date_str: str) -> str:
+def convert_to_datetime(data_str: str) -> str:
     formats = [
         '%d %m - %Y',
         '%d %b - %Y',
         '%d %B - %Y',
         '%d/%m/%Y',
         '%d de %B de %Y',
+        '%d/%b/%Y'
     ]
 
     mes_list = list(meses.keys())
-    date_split = date_str.lower().split()
+    date_split = data_str.lower().split()
+    hoje = datetime.strptime(datetime.now().strftime('%d/%m/%Y'), '%d/%m/%Y')
 
     for d in date_split:
         if d in mes_list:
-            date_str = date_str.lower().replace(d, meses[d])        
+            data_str = data_str.lower().replace(d, meses[d])        
+
+    if len(data_str.split()) == 2:
+        ano = date.today().year
+        data_l = data_str.split()
+        data_str = f'{data_l[0]}/{data_l[1]}'
+        data_str2 = f'{data_str}/{ano}'
+    else:
+        data_str2 = data_str
 
     for f in formats:
         try:
-            date = datetime.strptime(date_str, f)
-            date = date.strftime('%d/%m/%Y')
-            return date
+            data = datetime.strptime(data_str2, f)
+            if data < hoje:
+                try:
+                    data_str2 = f'{data_str}/{ano+1}'
+                except UnboundLocalError:
+                    pass
+            data = datetime.strptime(data_str2, f)
+            data = data.strftime('%d/%m/%Y')
+            return data
         except ValueError:
             continue
     
-    raise ValueError(f'Não foi possível converter a data "{date_str}"')
-    # return date_str
+    raise ValueError(f'Não foi possível converter a data "{data_str}"')
+    # return data_str
 
 if __name__=="__main__":
-    date = convert_to_datetime('2025-07-25')
-    print(date)
+    data = convert_to_datetime('27 Mar - 2025')
+    print(data)
