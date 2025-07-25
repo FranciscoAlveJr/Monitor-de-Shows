@@ -34,6 +34,7 @@ def convert_to_datetime(data_str: str) -> str:
         '%d/%m/%Y',
         '%d de %B de %Y',
         '%d/%b/%Y'
+        ''
     ]
 
     mes_list = list(meses.keys())

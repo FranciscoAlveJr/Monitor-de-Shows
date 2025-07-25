@@ -1,7 +1,7 @@
 import requests as rq
 from requests import Session
 from bs4 import BeautifulSoup as bs
-# from pprint import pprint
+from pprint import pprint
 from datetime import datetime
 import logging
 from filtros import definir_genero
@@ -449,6 +449,7 @@ class Eventim:
         self.logger = logging.getLogger(__name__)
         self.genero = genero
         self.todos = todos
+        self.generos = ['Rock Nacional', 'Pop Nacional', 'MPB', 'Rock Internacional', 'Pop Internacional']
 
         if not todos:
             if 'Internacional' in genero:
@@ -478,7 +479,6 @@ class Eventim:
             'in_stock': 'true'
         }
 
-    
     def pesquisar_eventos(self, locais: list[str], data_list: list):
         if len(locais) == 0:
             ver_locais = False
@@ -543,7 +543,9 @@ class Eventim:
                         if len(data_list) == 2:
                             if date_event < data_list[0] or date_event > data_list[1]:
                                 continue
-
+                    else:
+                        if genero not in self.generos:
+                            continue
 
                     self.logger.info(evento['nome'])
                     self.eventos.append(evento)
@@ -662,7 +664,7 @@ class Ticket360:
             evento_dict['nome'] = nome
             evento_dict['local'] = local
             evento_dict['dataHora'] = data
-            evento_dict['genero'] = self.genero.title()
+            evento_dict['genero'] = self.genero.upper() if self.genero == 'mpb' else self.genero.title()
             evento_dict['link'] = f"https://www.ticket360.com.br/{evento.get('href')}"
 
             self.eventos.append(evento_dict)
@@ -672,6 +674,88 @@ class Ticket360:
         self.logger.info('PESQUISA NO TICKET360 CONCLUIDA.')
         return self.eventos
 
+class Ingresse:
+    def __init__(self) -> None:
+        self.eventos = []
+        self.logger = logging.getLogger(__name__)
+
+        self.url = r'https://api-site.ingresse.com/events/search'
+
+        self.headers = {
+            'authority': 'api-site.ingresse.com',
+            'Accept': '*/*',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Sec-Ch-Ua': 'Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'
+        }
+
+        self.payload = {
+            'company_id': '1',
+            'iso_code': 'BRA-SP',
+            'size': '100',
+            'offset': '0',
+            'order_by_date': 'true'
+        }
+
+    def pesquisar_eventos(self):
+        self.logger.info(f'Pesquisando Eventos em São Paulo no site Ingresse...')
+        # res = rq.get(self.url, headers=self.headers, params=self.payload)
+        # json_res = res.json()
+
+        generos = ['rock', 'pop']
+        
+        for genero in generos:
+            self.logger.info(f'Pesquisando Eventos de {genero}...')
+            eventos = self.generos(genero)
+
+            for evento in eventos:
+                evento_dict = {
+                    'nome': '',
+                    'local': '',
+                    'dataHora': '',
+                    'genero': '',
+                    'link': '',
+                    'site': 'Ingresse'
+                }
+
+                evento_dict['nome'] = evento['title']
+                evento_dict['local'] = evento['venues']['name']
+                data = evento['event_date'].split('T')[0]
+                evento_dict['dataHora'] = datetime.strftime(datetime.strptime(data, '%Y-%m-%d'), '%d/%m/%Y')
+                evento_dict['genero'] = genero.title()
+                evento_dict['link'] = f"https://ingresse.com/{evento['slug']}/"
+
+                self.eventos.append(evento_dict)
+
+                self.logger.info(evento_dict['nome'])
+            
+        self.logger.info('PESQUISA NO INGRESSE CONCLUIDA.')
+        return self.eventos
+
+    def generos(self, genero):
+        url = 'https://api-site.ingresse.com/categories/filter/events'
+        payload = {
+            'category_slug': genero,
+            'iso_code': 'BRA-SP',
+            'language': 'pt-br',
+            'current_page': '1',
+            'page_size': '100'
+        }
+        res = rq.get(url, headers=self.headers, params=payload)
+        json_res = res.json()
+        eventos = json_res['events']
+        pages = json_res['total_pages']
+
+        if pages == 1:
+            return eventos
+        
+        for i in range(1, pages):
+            payload['current_page'] = str(i + 1)
+            res2 = rq.get(url, headers=self.headers, params=payload)
+            json_res = res2.json()
+            eventos.extend(json_res['events'])
+
+        return eventos
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()])
@@ -688,8 +772,12 @@ if __name__ == '__main__':
     # uhuu = Uhuu(True)
     # pprint(uhuu.pesquisar_eventos([], [], datetime.now()))
 
-    ticket360 = Ticket360('', True)
-    print(ticket360.pesquisar_eventos([], [datetime.now()]))
+    # ticket360 = Ticket360('', True)
+    # print(ticket360.pesquisar_eventos([], [datetime.now()]))
+
+    ingresse = Ingresse('', True)
+    pprint(ingresse.pesquisar_eventos())
+    # pprint(ingresse.generos('mpb'))
 
 
 
