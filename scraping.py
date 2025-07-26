@@ -756,6 +756,138 @@ class Ingresse:
             eventos.extend(json_res['events'])
 
         return eventos
+    
+class TicketsForFun:
+    def __init__(self) -> None:
+        self.eventos = []
+        self.nomes = []
+        self.logger = logging.getLogger(__name__)
+
+        self.url = r'https://www.ticketsforfun.com.br/_next/data/pVBNiXLTl5-Nnn573Jicg/busca.json'
+
+        self.headers = {
+            'authority': 'www.ticketsforfun.com.br',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Sec-Ch-Ua': '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'
+        }
+
+
+    def pesquisar_eventos(self):
+        self.logger.info(f'Pesquisando Eventos em São Paulo no site TicketsForFun...')
+
+        generos = ['pop', 'rock', 'mpb']
+
+        for genero in generos:
+            self.logger.info(f'Pesquisando Eventos de {genero}...')
+
+            payload = {
+                'url': f'{genero}/São Paulo/null/null'
+            }
+
+            res = rq.get(self.url, headers=self.headers, params=payload)
+            json_res = res.json()
+            eventos = json_res['pageProps']['events']
+
+            for evento in eventos:
+                evento_dict = {
+                    'nome': '',
+                    'local': '',
+                    'dataHora': '',
+                    'genero': '',
+                    'link': '',
+                    'site': 'TicketsForFun'
+                }
+
+                evento_dict['nome'] = evento['title']
+                evento_dict['local'] = evento['locationName']
+                data = evento['date']
+                evento_dict['dataHora'] = datetime.strftime(datetime.strptime(data, '%Y-%m-%d %H:%M:%S'), '%d/%m/%Y')
+                evento_dict['genero'] = genero.upper() if genero == 'mpb' else genero.title()
+                evento_dict['link'] = f'https://sales.ticketsforfun.com.br/#/event/{evento['slug']}'
+
+                if evento_dict['nome'] in self.nomes:
+                    continue
+
+                self.nomes.append(evento_dict['nome'])
+                self.eventos.append(evento_dict)
+                self.logger.info(evento_dict['nome'])
+
+        self.logger.info('PESQUISA NO TICKETS FOR FUN CONCLUIDA.')
+        return self.eventos
+
+class TicketsMaster:
+    def __init__(self) -> None:
+        self.eventos = []
+        self.logger = logging.getLogger(__name__)
+
+        self.url = r'https://www.ticketmaster.com.br/page/sp'
+
+        self.headers = {
+            'authority': 'www.ticketmaster.com.br',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Sec-Ch-Ua': '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'
+        }
+
+    def pesquisar_eventos(self):
+        self.logger.info(f'Pesquisando Eventos em São Paulo no site TicketMaster...')
+
+        res = rq.get(self.url, headers=self.headers)
+        soup = bs(res.text, 'html.parser')
+
+        eventos = soup.find_all('a', {'class': 'grid_element'})
+
+        for evento in eventos:
+            evento_dict = {
+                'nome': '',
+                'local': '',
+                'dataHora': '',
+                'genero': '',
+                'link': '',
+                'site': 'TicketMaster'
+            }
+
+            detalhes = evento.find('div', {'class': 'details'})
+            nome_local_data = detalhes.find('h3').text.split(' - ')
+            evento_dict['nome'] = nome_local_data[0].strip()
+            data = ''
+
+            if len(nome_local_data) > 1:
+                for i, n in enumerate(nome_local_data):
+                    if n.strip() == 'Venda Geral':
+                        continue
+                    try:
+                        data = datetime.strptime(n.strip(), '%d/%m/%Y')
+                    except ValueError:
+                        try:
+                            data = datetime.strptime(n.strip(), '%d/%m/%y')
+                        except ValueError:
+                            if i > 0:
+                                evento_dict['local'] = n.strip()
+                            continue
+                if data == '':
+                    data = detalhes.find('strong').text
+                    data = data.split(' e ')[-1].strip()
+            else:
+                data = detalhes.find('strong').text
+                data = data.split(' e ')[-1].strip()
+
+            try:
+                evento_dict['dataHora'] = datetime.strftime(data, '%d/%m/%Y')
+            except TypeError:
+                evento_dict['dataHora'] = convert_to_datetime(data)
+
+            link = evento['href'].replace('..', '')
+            evento_dict['link'] = 'https://www.ticketmaster.com.br'+link
+
+            self.eventos.append(evento_dict)
+            self.logger.info(evento_dict['nome'])
+        
+        self.logger.info('PESQUISA NO TICKET MASTER CONCLUIDA.')
+        return self.eventos
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()])
@@ -775,10 +907,15 @@ if __name__ == '__main__':
     # ticket360 = Ticket360('', True)
     # print(ticket360.pesquisar_eventos([], [datetime.now()]))
 
-    ingresse = Ingresse('', True)
-    pprint(ingresse.pesquisar_eventos())
+    # ingresse = Ingresse()
+    # pprint(ingresse.pesquisar_eventos())
     # pprint(ingresse.generos('mpb'))
 
+    # ticketsforfun = TicketsForFun()
+    # pprint(ticketsforfun.pesquisar_eventos())
+
+    ticketsmaster = TicketsMaster()
+    pprint(ticketsmaster.pesquisar_eventos())
 
 
 # Gêneros:
