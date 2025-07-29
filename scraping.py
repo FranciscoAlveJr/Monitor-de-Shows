@@ -22,6 +22,7 @@ class Sympla:
         self.logger = logging.getLogger(__name__)
         self.todos = todos
         self.genero = genero
+        self.nomes = []
 
         url = 'https://www.sympla.com.br/api/discovery-bff'
 
@@ -170,11 +171,16 @@ class Sympla:
 
                 for item in items:
                     if len(items) > 1:
-                        date = item['presentation_date_time'].split('T')[0]
+                        date = item['presentation_local_date_time'].split('T')[0]
                         evento['dataHora'] = datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%d/%m/%Y')
                         date_event = datetime.strptime(evento['dataHora'], '%d/%m/%Y').date()
 
-                    evento['nome'] = event['name']
+                    evento['nome'] = f"{event['name']} - {evento['dataHora']}"
+
+                    if evento['nome'] in self.nomes:
+                        continue
+
+                    self.nomes.append(f'{event["name"]} - {evento["dataHora"]}')
 
                     local_casa = event['location']['name']
                     # endereco = event['location']['address']
@@ -203,7 +209,7 @@ class Sympla:
                                     continue
 
                         self.eventos.append(evento)
-                        self.logger.info(f'{evento["nome"]} - {evento['dataHora']}')
+                        self.logger.info(f'{evento["nome"]}')
 
             if i == total_paginas:
                 break
