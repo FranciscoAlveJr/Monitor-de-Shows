@@ -33,8 +33,8 @@ def convert_to_datetime(data_str: str) -> str:
         '%d %B - %Y',
         '%d/%m/%Y',
         '%d de %B de %Y',
-        '%d/%b/%Y'
-        ''
+        '%d/%b/%Y',
+        '%d/%B/%Y'
     ]
 
     mes_list = list(meses.keys())
@@ -71,5 +71,5 @@ def convert_to_datetime(data_str: str) -> str:
     # return data_str
 
 if __name__=="__main__":
-    data = convert_to_datetime('27 Mar - 2025')
+    data = convert_to_datetime('01/Agosto')
     print(data)

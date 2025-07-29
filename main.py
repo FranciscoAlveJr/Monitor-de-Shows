@@ -1,4 +1,4 @@
-from scraping import ClubdoIngresso, Uhuu, Sympla, Eventim, Ticket360, Ingresse, TicketsForFun
+from scraping import ClubdoIngresso, Uhuu, Sympla, Eventim, Ticket360, Ingresse, TicketsForFun, CafePiuPiu, TokioMarine
 import pandas as pd
 import logging
 from send_gmail import main_api
@@ -26,6 +26,8 @@ class Shows:
         self.ticket360 = Ticket360(genero, todos)
         self.ingresse = Ingresse()
         self.ticketsforfun = TicketsForFun()
+        self.cafe_piupiu = CafePiuPiu()
+        self.tokio_marine = TokioMarine()
 
     def nome_planilha(self):
         data = datetime.now().strftime('%H%M%S%d%m%Y')
@@ -80,8 +82,10 @@ class Shows:
         ticket360 = self.ticket360.pesquisar_eventos(self.locais, self.data)
         ingresse = self.ingresse.pesquisar_eventos()
         ticketsforfun = self.ticketsforfun.pesquisar_eventos()
+        cafepiupiu = self.cafe_piupiu.pesquisar_eventos()
+        tokiomarine = self.tokio_marine.pesquisar_eventos()
 
-        self.eventos = sympla + clube + uhuu + eventim + ticket360 + ingresse + ticketsforfun
+        self.eventos = sympla + clube + uhuu + eventim + ticket360 + ingresse + ticketsforfun + cafepiupiu + tokiomarine
 
         self.logger.info('PESQUISA FINALIZADA.')
         return self.eventos
