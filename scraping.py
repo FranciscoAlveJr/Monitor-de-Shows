@@ -8,6 +8,7 @@ from filtros import definir_genero
 from time import sleep
 from date_convert import convert_to_datetime
 from requests.exceptions import ConnectionError
+from searcher import Groq
 
 # Club do Ingresso
 # Ingresso rapido
@@ -15,6 +16,8 @@ from requests.exceptions import ConnectionError
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()], encoding='utf-8')
 
+groq = Groq()
+generos = ['Rock Nacional', 'Rock Internacional', 'Pop Nacional', 'Pop Internacional', 'MPB']
 
 class Sympla:
     def __init__(self, genero: str, todos: bool) -> None:
@@ -66,138 +69,158 @@ class Sympla:
         self.url2 = self.url2.format(genero=self.genero)
 
     def pesquisar_eventos(self, locais: list[str], date_list: list):
-        self.logger.info(f'Iniciando pesquisa de eventos de em São Paulo no site Sympla...')
+        try:
+            self.logger.info(f'Iniciando pesquisa de eventos de em São Paulo no site Sympla...')
 
-        ver_local = False
+            ver_local = False
 
-        if len(locais) > 0:
-            ver_local = True
+            if len(locais) > 0:
+                ver_local = True
 
-        i = 1
-        total_paginas = 1
+            i = 1
+            total_paginas = 1
+            e = 0
+            total_tokens = 0
 
-        while True:
-            sleep(1)
-            if i == 1:
-                page = ''
-            else:
-                page = f'&page={i}'
-
-            res = self.session.get(self.url2+page, headers=self.headers, cookies=self.cookies)
-            try:
-                data = res.json()['data']
-            except KeyError:
-                i += 1
-                continue
-
-            if i == 1:
-                total = res.json()['total']
-                limite = res.json()['limit']
-
-                if total == 0:
-                    self.logger.info(f'Nenhum evento foi encontrado.')
-                    break
-
-                f = total % limite
-                if f != 0:
-                    total_paginas = total // limite + 1
-                else:
-                    total_paginas = total // limite
-
-                self.logger.info(f'Foram encontrados {total} eventos.')
-
-
-            for event in data:
+            while True:
                 sleep(1)
+                if i == 1:
+                    page = ''
+                else:
+                    page = f'&page={i}'
 
-                evento = {
-                    'nome': '',
-                    'local': '',
-                    'dataHora': '',
-                    'genero': '',
-                    'link': '',
-                    'site': 'Sympla'
-                }
-
-                url = event['url']
-                res2 = self.session.get(url, headers=self.headers)
-                soup = bs(res2.content, 'html.parser')
-
-                date = event['start_date_formats']['pt']
-                converted_date = convert_to_datetime(date[date.find(',')+1:date.find(' ·')].strip())
-                evento['dataHora'] = converted_date
-                date_event = datetime.strptime(evento['dataHora'], '%d/%m/%Y').date()
-
-                items = [evento['dataHora']]
-                tent = 0
+                res = self.session.get(self.url2+page, headers=self.headers, cookies=self.cookies)
                 try:
-                    descricao = soup.select(
-                        '#__next > section.sc-b281498b-0.ilWENo > div > div > div.sc-537fdfcb-0.bdUbUp')[0].text
-                except IndexError:
-                    while tent < 5:
-                        try:
-                            headers = {
-                                'authority': 'bff-sales-api-cdn.bileto.sympla.com.br',
-                                'accept': 'application/json',
-                                'accept-language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-                                'sec-ch-ua': '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"',
-                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
-                                'X-Api-Key': 'cQkazy2Wc'
-                            }
-                            event_id = url.split('/')[-1]
-                            bileto_url = f'https://bff-sales-api-cdn.bileto.sympla.com.br/api/v1/events/{event_id}'
-                            res3 = self.session.get(bileto_url, headers=headers)
-                            try:
-                                json_res = res3.json()['data']
-                            except KeyError:
-                                tent = 5
-                                continue
-                            try:
-                                descricao = json_res['operator_info']
-                                break
-                            except KeyError:
-                                raw = json_res['description']['raw']
-                                soup2 = bs(raw, 'html.parser')
-                                descricao = soup2.text
-                                items = json_res['presentations']['items']
-                                break
-                        except ConnectionError:
-                            tent += 1
-                            sleep(60)
-                            continue
-
-                if tent == 5:
+                    data = res.json()['data']
+                except KeyError:
+                    i += 1
                     continue
 
-                for item in items:
-                    if len(items) > 1:
-                        date = item['presentation_local_date_time'].split('T')[0]
-                        evento['dataHora'] = datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%d/%m/%Y')
-                        date_event = datetime.strptime(evento['dataHora'], '%d/%m/%Y').date()
+                if i == 1:
+                    total = res.json()['total']
+                    limite = res.json()['limit']
 
-                    evento['nome'] = f"{event['name']} - {evento['dataHora']}"
+                    if total == 0:
+                        self.logger.info(f'Nenhum evento foi encontrado.')
+                        break
 
-                    if evento['nome'] in self.nomes:
-                        continue
-
-                    self.nomes.append(f'{event["name"]} - {evento["dataHora"]}')
-
-                    local_casa = event['location']['name']
-                    # endereco = event['location']['address']
-                    cidade = event['location']['city']
-                    if cidade != 'São Paulo':
-                        continue
-                    # estado = event['location']['state']
-                    evento['local'] = local_casa
-
-                    evento['link'] = event['url']
-
-                    evento_genero = definir_genero(evento['nome'], descricao)
-                    evento['genero'] = evento_genero
-
-                    if evento_genero == 'Outro':
-                        continue
+                    f = total % limite
+                    if f != 0:
+                        total_paginas = total // limite + 1
                     else:
+                        total_paginas = total // limite
+
+                    self.logger.info(f'Foram encontrados {total} eventos.')
+
+                for event in data:
+                    sleep(2)
+
+                    if total_tokens > 90000:
+                        i = total_paginas
+                        break
+
+                    # if e == 200:
+                    #     i = total_paginas
+                    #     break
+
+                    e += 1
+
+                    evento = {
+                        'nome': '',
+                        'local': '',
+                        'dataHora': '',
+                        'genero': '',
+                        'link': '',
+                        'site': 'Sympla'
+                    }
+
+                    url = event['url']
+                    res2 = self.session.get(url, headers=self.headers)
+                    soup = bs(res2.content, 'html.parser')
+
+                    date = event['start_date_formats']['pt']
+                    converted_date = convert_to_datetime(date[date.find(',')+1:date.find(' ·')].strip())
+                    evento['dataHora'] = converted_date
+                    date_event = datetime.strptime(evento['dataHora'], '%d/%m/%Y').date()
+
+                    items = [evento['dataHora']]
+                    tent = 0
+                    try:
+                        descricao = soup.select(
+                            '#__next > section.sc-b281498b-0.ilWENo > div > div > div.sc-537fdfcb-0.bdUbUp')[0].text
+                    except IndexError:
+                        while tent < 5:
+                            try:
+                                headers = {
+                                    'authority': 'bff-sales-api-cdn.bileto.sympla.com.br',
+                                    'accept': 'application/json',
+                                    'accept-language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+                                    'sec-ch-ua': '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"',
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+                                    'X-Api-Key': 'cQkazy2Wc'
+                                }
+                                event_id = url.split('/')[-1]
+                                bileto_url = f'https://bff-sales-api-cdn.bileto.sympla.com.br/api/v1/events/{event_id}'
+                                res3 = self.session.get(bileto_url, headers=headers)
+                                try:
+                                    json_res = res3.json()['data']
+                                except KeyError:
+                                    tent = 5
+                                    continue
+                                try:
+                                    descricao = json_res['operator_info']
+                                    break
+                                except KeyError:
+                                    raw = json_res['description']['raw']
+                                    soup2 = bs(raw, 'html.parser')
+                                    descricao = soup2.text
+                                    items = json_res['presentations']['items']
+                                    break
+                            except ConnectionError:
+                                tent += 1
+                                sleep(60)
+                                continue
+
+                    if tent == 5:
+                        continue
+
+                    if len(descricao) >= 1000:
+                        descricao = descricao[:1000]
+
+                    evento_genero = groq.definir_genero(evento['nome'], descricao)
+                    genero = evento_genero[0]
+                    tokens = evento_genero[1]
+
+                    total_tokens += tokens
+
+                    evento['genero'] = genero
+
+                    if genero not in generos:
+                        continue
+
+                    for item in items:
+                        if len(items) > 1:
+                            date = item['presentation_local_date_time'].split('T')[0]
+                            evento['dataHora'] = datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%d/%m/%Y')
+                            date_event = datetime.strptime(evento['dataHora'], '%d/%m/%Y').date()
+
+                        evento['nome'] = f"{event['name']} - {evento['dataHora']}"
+
+                        if evento['nome'] in self.nomes:
+                            continue
+
+                        self.nomes.append(f'{event["name"]} - {evento["dataHora"]}')
+
+                        local_casa = event['location']['name']
+                        # endereco = event['location']['address']
+                        cidade = event['location']['city']
+                        if cidade != 'São Paulo':
+                            continue
+                        # estado = event['location']['state']
+                        evento['local'] = local_casa
+
+                        evento['link'] = event['url']
+
                         if not self.todos:
                             if evento_genero.lower() != self.genero.lower():
                                 continue                        
@@ -211,13 +234,16 @@ class Sympla:
                         self.eventos.append(evento)
                         self.logger.info(f'{evento["nome"]}')
 
-            if i == total_paginas:
-                break
+                if i == total_paginas:
+                    break
 
-            i += 1
+                i += 1
+            
+            return self.eventos
+        except Exception as e:
+            self.logger.error(e)
+            return []
         
-        return self.eventos
-    
 class ClubdoIngresso:
     def __init__(self, todos: bool) -> None:
         self.session = Session()
@@ -241,99 +267,120 @@ class ClubdoIngresso:
         self.url_estado = 'https://www.clubedoingresso.com/hotsite/filtrarEstados'
 
     def pesquisar_eventos(self, genero: str, locais: list[str], data_list: list):
-        if not genero:
-            ver_generos = False
-        else:
-            ver_generos = True
+        try:
+            if not genero:
+                ver_generos = False
+            else:
+                ver_generos = True
 
-        if len(locais) == 0:
-            ver_locais = False
-        else:
-            ver_locais = True        
+            if len(locais) == 0:
+                ver_locais = False
+            else:
+                ver_locais = True        
 
-        self.logger.info('Pesquisando Eventos em São Paulo no site Clube do Ingresso...')
+            self.logger.info('Pesquisando Eventos em São Paulo no site Clube do Ingresso...')
 
-        res_filtro = self.session.post(self.url_estado, headers=self.headers, data=self.payload)
+            res_filtro = self.session.post(self.url_estado, headers=self.headers, data=self.payload)
 
-        if res_filtro.status_code != 200:
-            self.logger.info('Ocorreu um erro no servidor.')
-            return None
+            if res_filtro.status_code != 200:
+                self.logger.info('Ocorreu um erro no servidor.')
+                return None
 
-        res = self.session.get(self.url, headers=self.headers)
-        soup = bs(res.content, 'html.parser')
+            res = self.session.get(self.url, headers=self.headers)
+            soup = bs(res.content, 'html.parser')
 
-        shows = soup.find_all('div', {'class': 'ItemCarrousel__content'})
+            shows = soup.find_all('div', {'class': 'ItemCarrousel__content'})
 
-        if len(shows) == 0:
-            self.logger.info('Nenhum evento foi encontrado.')
+            if len(shows) == 0:
+                self.logger.info('Nenhum evento foi encontrado.')
+                return self.eventos
+
+            self.logger.info(f'Foram encontrados {len(shows)} eventos.')
+
+            total_tokens = 0
+
+            for s, show in enumerate(shows):
+                sleep(2)
+
+                if total_tokens >= 90000:
+                    break
+
+                # if s == 200:
+                #     break
+
+                link = show.find('a').get('href')
+                link = 'https://www.clubedoingresso.com' + link
+
+                res2 = self.session.get(link, headers=self.headers)
+                soup = bs(res2.content, 'html.parser')
+
+                cidade = soup.find_all('div', {'class': 'PageEvent__desc'})[1].text
+
+                if not 'São Paulo' in cidade:
+                    continue
+
+                try:
+                    descricao = soup.find('div', {'class': 'EventDescricao'}).text.strip()
+                except AttributeError:
+                    descricao = ''
+
+                evento = {
+                    'nome': '',
+                    'local': '',
+                    'dataHora': '',
+                    'genero': '',
+                    'link': '',
+                    'site': 'Clube do Ingresso'
+                }
+
+                evento['nome'] = soup.find('div', {'class': 'PageEvent__nameEvent'}).text.strip()
+
+                data = soup.find('div', {'class': 'PageEvent__desc'}).text.strip()
+                data = data[data.find(',')+1:data.find('-')].strip()
+                evento['dataHora'] = convert_to_datetime(data)
+                date_event = datetime.strptime(evento['dataHora'], '%d/%m/%Y').date()
+
+                local = soup.find('div', {'class': 'PageEvent__local'})
+                teatro = local.find('div', {'class': 'PageEvent__subTitle'}).text.strip()
+                # endereco = local.find('div', {'class': 'PageEvent__desc'}).text.strip()
+                evento['local'] = f'{teatro}'
+                evento['link'] = link
+
+                if len(descricao) >= 1000:
+                    descricao = descricao[:1000]
+
+                dados_genero = groq.definir_genero(evento['nome'], descricao)
+                evento_genero = dados_genero[0]
+                tokens = dados_genero[1]
+
+                total_tokens += tokens
+
+                evento['genero'] = evento_genero
+
+                if evento_genero not in generos:
+                    continue
+
+                else:
+                    if not self.todos:
+                        if ver_generos:
+                            if genero.lower() != evento_genero.lower():
+                                continue
+                        if ver_locais:
+                            if not any(local for local in locais if local.lower() in evento['local'].lower()):
+                                continue
+                        if len(data_list) == 2:
+                            if date_event < data_list[0] or date_event > data_list[1]:
+                                continue
+
+                    self.eventos.append(evento)
+                    self.logger.info(f'{evento["nome"]}')
+
+            self.logger.info('PESQUISA NO CLUBE DO INGRESSO FINALIZADA.')
             return self.eventos
 
-        self.logger.info(f'Foram encontrados {len(shows)} eventos.')
-
-
-        for show in shows:
-            sleep(1)
-
-            link = show.find('a').get('href')
-            link = 'https://www.clubedoingresso.com' + link
-
-            res2 = self.session.get(link, headers=self.headers)
-            soup = bs(res2.content, 'html.parser')
-
-            cidade = soup.find_all('div', {'class': 'PageEvent__desc'})[1].text
-
-            if not 'São Paulo' in cidade:
-                continue
-
-            try:
-                descricao = soup.find('div', {'class': 'EventDescricao'}).text.strip()
-            except AttributeError:
-                descricao = ''
-
-            evento = {
-                'nome': '',
-                'local': '',
-                'dataHora': '',
-                'genero': '',
-                'link': '',
-                'site': 'Clube do Ingresso'
-            }
-
-            evento['nome'] = soup.find('div', {'class': 'PageEvent__nameEvent'}).text.strip()
-
-            data = soup.find('div', {'class': 'PageEvent__desc'}).text.strip()
-            data = data[data.find(',')+1:data.find('-')].strip()
-            evento['dataHora'] = convert_to_datetime(data)
-            date_event = datetime.strptime(evento['dataHora'], '%d/%m/%Y').date()
-
-            local = soup.find('div', {'class': 'PageEvent__local'})
-            teatro = local.find('div', {'class': 'PageEvent__subTitle'}).text.strip()
-            # endereco = local.find('div', {'class': 'PageEvent__desc'}).text.strip()
-            evento['local'] = f'{teatro}'
-            evento['link'] = link
-
-            evento_genero = definir_genero(evento['nome'], descricao)
-            evento['genero'] = evento_genero
-
-            if evento_genero == 'Outro':
-                continue
-            else:
-                if not self.todos:
-                    if ver_generos:
-                        if genero.lower() != evento_genero.lower():
-                            continue
-                    if ver_locais:
-                        if not any(local for local in locais if local.lower() in evento['local'].lower()):
-                            continue
-                    if len(data_list) == 2:
-                        if date_event < data_list[0] or date_event > data_list[1]:
-                            continue
-
-                self.eventos.append(evento)
-                self.logger.info(f'{evento["nome"]}')
-
-        self.logger.info('PESQUISA NO CLUBE DO INGRESSO FINALIZADA.')
-        return self.eventos
+        except Exception as e:
+            self.logger.error(e)
+            return []
 
 class Uhuu():
     def __init__(self, todos: bool) -> None:
@@ -358,108 +405,128 @@ class Uhuu():
         }
 
     def pesquisar_eventos(self, genero: str, locais: list[str], data_list: list):
-        if not genero:
-            ver_generos = False
-        else:
-            ver_generos = True
+        try:
+            if not genero:
+                ver_generos = False
+            else:
+                ver_generos = True
 
-        if len(locais) == 0:
-            ver_locais = False
-        else:
-            ver_locais = True        
+            if len(locais) == 0:
+                ver_locais = False
+            else:
+                ver_locais = True        
 
-        self.logger.info(f'Pesquisando Eventos em São Paulo no site Uhuu...')
+            self.logger.info(f'Pesquisando Eventos em São Paulo no site Uhuu...')
 
-        links = []
-        is_saopaulo = True
+            links = []
+            is_saopaulo = True
 
-        res = rq.get(self.url, headers=self.headers, params=self.payload)
-        soup = bs(res.content, 'html.parser')
-
-        paginacao = soup.find('ul', {'class': 'pagination'})
-        paginas = paginacao.find_all('a')
-        paginas = paginas[:-1]
-        num_paginas = len(paginas)
-
-        shows = soup.find_all('div', {'class': 'item card-evento'})
-        if len(shows) == 0:
-            self.logger.info('Nenhum evento foi encontrado.')
-            return self.eventos
-        
-        for show in shows:
-            link = show.find('a', {'class': 'link'}).get('href')
-            links.append(link)
-
-        for i in range(1, num_paginas):
-            sleep(1)
-            if not is_saopaulo:
-                break
-            self.payload['page'] = i+1
             res = rq.get(self.url, headers=self.headers, params=self.payload)
             soup = bs(res.content, 'html.parser')
+
+            paginacao = soup.find('ul', {'class': 'pagination'})
+            paginas = paginacao.find_all('a')
+            paginas = paginas[:-1]
+            num_paginas = len(paginas)
+
             shows = soup.find_all('div', {'class': 'item card-evento'})
+            if len(shows) == 0:
+                self.logger.info('Nenhum evento foi encontrado.')
+                return self.eventos
             
             for show in shows:
                 link = show.find('a', {'class': 'link'}).get('href')
-                if 'sp/sao-paulo' not in link:
-                    is_saopaulo = False
-                    break
                 links.append(link)
 
-        # Remover links duplicados
-        # links = list(set(links))
+            for i in range(1, num_paginas):
+                sleep(1)
+                if not is_saopaulo:
+                    break
+                self.payload['page'] = i+1
+                res = rq.get(self.url, headers=self.headers, params=self.payload)
+                soup = bs(res.content, 'html.parser')
+                shows = soup.find_all('div', {'class': 'item card-evento'})
+                
+                for show in shows:
+                    link = show.find('a', {'class': 'link'}).get('href')
+                    if 'sp/sao-paulo' not in link:
+                        is_saopaulo = False
+                        break
+                    links.append(link)
 
-        self.logger.info(f'Foram encontrados {len(links)} eventos.')
-        
-        for link in links:
-            sleep(1)
+            # Remover links duplicados
+            # links = list(set(links))
 
-            res = rq.get(link, headers=self.headers)
-            soup = bs(res.content, 'html.parser')
+            self.logger.info(f'Foram encontrados {len(links)} eventos.')
+            
+            total_tokens = 0
 
-            descricao = soup.find('div', {'class': 'tabs-content-item sobre active'}).text
+            for l, link in enumerate(links):
+                sleep(2)
 
-            evento = {
-                'nome': '',
-                'local': '',
-                'dataHora': '',
-                'genero': '',
-                'link': '',
-                'site': 'Uhuu'
-            }
+                if total_tokens > 90000:
+                    break
 
-            evento['nome'] = soup.find('h1', {'class': 'event-title'}).text.strip()
-            evento['local'] = soup.find('strong', {'id': 'pageEventLocal'}).text.strip()
+                # if l == 200:
+                #     break
 
-            data = soup.find_all('div', {'class': 'event-details'})[0].find('p').text.strip()
-            data = ' '.join(data.split()[:-2])
-            data = data.split(' a ')[0].strip()
-            evento['dataHora'] = convert_to_datetime(data)
-            date_event = datetime.strptime(evento['dataHora'], '%d/%m/%Y').date()
+                res = rq.get(link, headers=self.headers)
+                soup = bs(res.content, 'html.parser')
 
-            evento['link'] = link
+                descricao = soup.find('div', {'class': 'tabs-content-item sobre active'}).text
 
-            evento_genero = definir_genero(evento['nome'], descricao)
-            evento['genero'] = evento_genero
+                evento = {
+                    'nome': '',
+                    'local': '',
+                    'dataHora': '',
+                    'genero': '',
+                    'link': '',
+                    'site': 'Uhuu'
+                }
 
-            if evento_genero == 'Outro':
-                continue
-            else:
-                if not self.todos:
-                    if ver_generos:
-                        if genero.lower() != evento_genero.lower():
-                            continue
-                    if ver_locais:
-                        if not any(local for local in locais if local.lower() in evento['local'].lower()):
-                            continue
-                    if len(data_list) == 2:
-                        if date_event < data_list[0] or date_event > data_list[1]:
-                            continue
+                evento['nome'] = soup.find('h1', {'class': 'event-title'}).text.strip()
+                evento['local'] = soup.find('strong', {'id': 'pageEventLocal'}).text.strip()
 
-                self.eventos.append(evento)
-                self.logger.info(f'{evento["nome"]}')
-        
-        return self.eventos
+                data = soup.find_all('div', {'class': 'event-details'})[0].find('p').text.strip()
+                data = ' '.join(data.split()[:-2])
+                data = data.split(' a ')[0].strip()
+                evento['dataHora'] = convert_to_datetime(data)
+                date_event = datetime.strptime(evento['dataHora'], '%d/%m/%Y').date()
+
+                evento['link'] = link
+
+                if len(descricao) >= 1500:
+                    descricao = descricao[:1500]
+
+                dados_genero = groq.definir_genero(evento['nome'], descricao)
+                evento_genero = dados_genero[0]
+                tokens = dados_genero[1]
+
+                total_tokens += tokens
+
+                evento['genero'] = evento_genero
+
+                if evento_genero not in generos:
+                    continue
+
+                else:
+                    if not self.todos:
+                        if ver_generos:
+                            if genero.lower() != evento_genero.lower():
+                                continue
+                        if ver_locais:
+                            if not any(local for local in locais if local.lower() in evento['local'].lower()):
+                                continue
+                        if len(data_list) == 2:
+                            if date_event < data_list[0] or date_event > data_list[1]:
+                                continue
+
+                    self.eventos.append(evento)
+                    self.logger.info(f'{evento["nome"]}')
+            
+            return self.eventos
+        except Exception as e:
+            return []
 
 class Eventim:
     def __init__(self, genero: str, todos: bool) -> None:
@@ -499,80 +566,84 @@ class Eventim:
         }
 
     def pesquisar_eventos(self, locais: list[str], data_list: list):
-        if len(locais) == 0:
-            ver_locais = False
-        else:
-            ver_locais = True        
+        try:
+            if len(locais) == 0:
+                ver_locais = False
+            else:
+                ver_locais = True        
 
-        if self.todos:
-            self.payload.pop('categories')
+            if self.todos:
+                self.payload.pop('categories')
 
-        self.logger.info(f'Iniciando pesquisa de eventos em São Paulo no site Eventim...')
-        i = 0
+            self.logger.info(f'Iniciando pesquisa de eventos em São Paulo no site Eventim...')
+            i = 0
 
-        while True:
-            sleep(1)
-            i += 1
+            while True:
+                sleep(1)
+                i += 1
 
-            if i > 1:
-                self.payload['page'] = i
+                if i > 1:
+                    self.payload['page'] = i
 
-            res = self.session.get(self.url, headers=self.headers, params=self.payload)
-            shows = res.json()['productGroups']
+                res = self.session.get(self.url, headers=self.headers, params=self.payload)
+                shows = res.json()['productGroups']
 
-            if i == 1:
-                total_paginas = res.json()['totalPages']
-                total_results = res.json()['totalResults']
-                self.logger.info(f'Foram encontrados {total_results} eventos.')
+                if i == 1:
+                    total_paginas = res.json()['totalPages']
+                    total_results = res.json()['totalResults']
+                    self.logger.info(f'Foram encontrados {total_results} eventos.')
 
-            for show in shows:
-                evento = {
-                    'nome': '',
-                    'local': '',
-                    'dataHora': '',
-                    'genero': '',
-                    'link': '',
-                    'site': 'Eventim'
-                }
+                for show in shows:
+                    evento = {
+                        'nome': '',
+                        'local': '',
+                        'dataHora': '',
+                        'genero': '',
+                        'link': '',
+                        'site': 'Eventim'
+                    }
 
-                num_produtos = show['productCount']
-                produtos = show['products']
-                try:
-                    genero = show['categories'][1]['name']
-                except (IndexError, KeyError):
-                    genero = "Outro"
+                    num_produtos = show['productCount']
+                    produtos = show['products']
+                    try:
+                        genero = show['categories'][1]['name']
+                    except (IndexError, KeyError):
+                        genero = "Outro"
 
-                for produto in produtos:
-                    evento['nome'] = produto['name']
-                    data_hora = produto['typeAttributes']['liveEntertainment']['startDate']
-                    data = datetime.strftime(datetime.strptime(data_hora.split('T')[0], '%Y-%m-%d'), "%d/%m/%Y")
-                    evento['dataHora'] = convert_to_datetime(data)
-                    date_event = datetime.strptime(evento['dataHora'], '%d/%m/%Y').date()
+                    for produto in produtos:
+                        evento['nome'] = produto['name']
+                        data_hora = produto['typeAttributes']['liveEntertainment']['startDate']
+                        data = datetime.strftime(datetime.strptime(data_hora.split('T')[0], '%Y-%m-%d'), "%d/%m/%Y")
+                        evento['dataHora'] = convert_to_datetime(data)
+                        date_event = datetime.strptime(evento['dataHora'], '%d/%m/%Y').date()
 
-                    evento['link'] = produto['link']
-                    evento['genero'] = genero
+                        evento['link'] = produto['link']
+                        evento['genero'] = genero
 
-                    local = produto['typeAttributes']['liveEntertainment']['location']['name']
-                    evento['local'] = local
+                        local = produto['typeAttributes']['liveEntertainment']['location']['name']
+                        evento['local'] = local
 
-                    if not self.todos:
-                        if ver_locais:
-                            if not any(local for local in locais if local.lower() in evento['local'].lower()):
+                        if not self.todos:
+                            if ver_locais:
+                                if not any(local for local in locais if local.lower() in evento['local'].lower()):
+                                    continue
+                            if len(data_list) == 2:
+                                if date_event < data_list[0] or date_event > data_list[1]:
+                                    continue
+                        else:
+                            if genero not in self.generos:
                                 continue
-                        if len(data_list) == 2:
-                            if date_event < data_list[0] or date_event > data_list[1]:
-                                continue
-                    else:
-                        if genero not in self.generos:
-                            continue
 
-                    self.logger.info(evento['nome'])
-                    self.eventos.append(evento)
+                        self.logger.info(evento['nome'])
+                        self.eventos.append(evento)
 
-            if i == total_paginas:
-                # self.eventos = [dict(t) for t in {tuple(evento.items()) for evento in self.eventos}]
-                self.logger.info(f'PESQUISA NO EVENTIM FINALIZADA.')
-                return self.eventos
+                if i == total_paginas:
+                    # self.eventos = [dict(t) for t in {tuple(evento.items()) for evento in self.eventos}]
+                    self.logger.info(f'PESQUISA NO EVENTIM FINALIZADA.')
+                    return self.eventos
+        except Exception as e:
+            self.logger.error(e)
+            return [] 
 
 class Ticket360:
     def __init__(self, genero: str, todos: bool) -> None:
@@ -593,105 +664,109 @@ class Ticket360:
         }
 
     def pesquisar_eventos(self, locais: list[str], data_list: list):
-        if len(locais) == 0:
-            ver_locais = False
-        else:
-            ver_locais = True
+        try:
+            if len(locais) == 0:
+                ver_locais = False
+            else:
+                ver_locais = True
 
-        self.logger.info(f'Iniciando pesquisa de eventos em São Paulo no site Ticket360...')
+            self.logger.info(f'Iniciando pesquisa de eventos em São Paulo no site Ticket360...')
 
-        # OS EVENTOS EM SÃO PAULO
-        self.logger.info('Buscando por eventos em São Paulo...')
-        res = rq.get(self.url, headers=self.headers)
-        soup = bs(res.content, 'html.parser')
+            # OS EVENTOS EM SÃO PAULO
+            self.logger.info('Buscando por eventos em São Paulo...')
+            res = rq.get(self.url, headers=self.headers)
+            soup = bs(res.content, 'html.parser')
 
-        all_eventos = soup.find_all('a', {'class': 'event-click'})
+            all_eventos = soup.find_all('a', {'class': 'event-click'})
 
-        sleep(1)
-        # EVENTOS DO GÊNERO
-        if self.todos:
-            generos_dict = {'rock': [], 'pop': [], 'mpb': [], 'pop-rock': []}
-            generos = list(generos_dict.keys())
+            sleep(1)
+            # EVENTOS DO GÊNERO
+            if self.todos:
+                generos_dict = {'rock': [], 'pop': [], 'mpb': [], 'pop-rock': []}
+                generos = list(generos_dict.keys())
 
-            for genero in generos:
-                self.logger.info(f'Buscando por eventos de {genero}...')
+                for genero in generos:
+                    self.logger.info(f'Buscando por eventos de {genero}...')
+                    self.url_gen = f'https://www.ticket360.com.br/eventos/pesquisar?s={genero}'
+                    sleep(1)
+                    res2 = rq.get(self.url_gen, headers=self.headers)
+                    soup2 = bs(res2.content, 'html.parser')
+
+                    gen_eventos = soup2.find_all('a', {'class': 'event-click'})
+                    gen_eventos = [evento.get('data-id') for evento in gen_eventos]
+                    generos_dict[genero] = gen_eventos
+            else:
+                genero = self.genero.split()[0].lower() if len(self.genero.split()) > 1 else self.genero.lower()
+
                 self.url_gen = f'https://www.ticket360.com.br/eventos/pesquisar?s={genero}'
-                sleep(1)
                 res2 = rq.get(self.url_gen, headers=self.headers)
                 soup2 = bs(res2.content, 'html.parser')
 
                 gen_eventos = soup2.find_all('a', {'class': 'event-click'})
                 gen_eventos = [evento.get('data-id') for evento in gen_eventos]
-                generos_dict[genero] = gen_eventos
-        else:
-            genero = self.genero.split()[0].lower() if len(self.genero.split()) > 1 else self.genero.lower()
 
-            self.url_gen = f'https://www.ticket360.com.br/eventos/pesquisar?s={genero}'
-            res2 = rq.get(self.url_gen, headers=self.headers)
-            soup2 = bs(res2.content, 'html.parser')
-
-            gen_eventos = soup2.find_all('a', {'class': 'event-click'})
-            gen_eventos = [evento.get('data-id') for evento in gen_eventos]
-
-        for evento in all_eventos:
-            endereco = evento.find('span', {'class': 'card-endereco'}).text.strip()
-            # estado = endereco.split('/')[1].strip().lower()
-            if 'Săo Paulo' not in endereco:
-                continue
-
-            evento_dict = {
-                'nome': '',
-                'local': '',
-                'dataHora': '',
-                'genero': '',
-                'link': '',
-                'site': 'Ticket360'
-            }
-
-            nome = evento.find('span', {'class': 'card-name-evento'})
-            nome = nome.text.strip().replace('\n', '')
-            local = evento.find('div', {'class': 'row header-card-event'})
-            local = local.text.strip().replace('\n', '')
-            datas = evento.find_all('div', {'class': 'row data-calendar'})
-            for data in datas:
-                data = data.text.strip().replace('\n', '').split()
-                data = f'{data[1]} {data[0]}'
-                data = convert_to_datetime(data)
-                date_event = datetime.strptime(data, '%d/%m/%Y').date()
-
-                title = evento.get('data-id')
-                if not self.todos:
-                    if title not in gen_eventos:
-                        continue
-                    if ver_locais:
-                        if not any(local_e for local_e in locais if local_e.lower() in local.lower()):
-                            continue
-                    if len(data_list) == 2:
-                        if date_event < data_list[0] or date_event > data_list[1]:
-                            continue
-                else:
-                    for genero, gen_eventos in generos_dict.items():
-                        if title in gen_eventos:
-                            self.genero = genero
-                            break
-                        else:
-                            self.genero = "outro"
-                
-                if self.genero == 'outro':
+            for evento in all_eventos:
+                endereco = evento.find('span', {'class': 'card-endereco'}).text.strip()
+                # estado = endereco.split('/')[1].strip().lower()
+                if 'Săo Paulo' not in endereco:
                     continue
 
-                evento_dict['nome'] = nome
-                evento_dict['local'] = local
-                evento_dict['dataHora'] = data
-                evento_dict['genero'] = self.genero.upper() if self.genero == 'mpb' else self.genero.title()
-                evento_dict['link'] = f"https://www.ticket360.com.br/{evento.get('href')}"
+                evento_dict = {
+                    'nome': '',
+                    'local': '',
+                    'dataHora': '',
+                    'genero': '',
+                    'link': '',
+                    'site': 'Ticket360'
+                }
 
-                self.eventos.append(evento_dict)
+                nome = evento.find('span', {'class': 'card-name-evento'})
+                nome = nome.text.strip().replace('\n', '')
+                local = evento.find('div', {'class': 'row header-card-event'})
+                local = local.text.strip().replace('\n', '')
+                datas = evento.find_all('div', {'class': 'row data-calendar'})
+                for data in datas:
+                    data = data.text.strip().replace('\n', '').split()
+                    data = f'{data[1]} {data[0]}'
+                    data = convert_to_datetime(data)
+                    date_event = datetime.strptime(data, '%d/%m/%Y').date()
 
-                self.logger.info(f'{nome} - {data}')
+                    title = evento.get('data-id')
+                    if not self.todos:
+                        if title not in gen_eventos:
+                            continue
+                        if ver_locais:
+                            if not any(local_e for local_e in locais if local_e.lower() in local.lower()):
+                                continue
+                        if len(data_list) == 2:
+                            if date_event < data_list[0] or date_event > data_list[1]:
+                                continue
+                    else:
+                        for genero, gen_eventos in generos_dict.items():
+                            if title in gen_eventos:
+                                self.genero = genero
+                                break
+                            else:
+                                self.genero = "outro"
+                    
+                    if self.genero == 'outro':
+                        continue
 
-        self.logger.info('PESQUISA NO TICKET360 CONCLUIDA.')
-        return self.eventos
+                    evento_dict['nome'] = nome
+                    evento_dict['local'] = local
+                    evento_dict['dataHora'] = data
+                    evento_dict['genero'] = self.genero.upper() if self.genero == 'mpb' else self.genero.title()
+                    evento_dict['link'] = f"https://www.ticket360.com.br/{evento.get('href')}"
+
+                    self.eventos.append(evento_dict)
+
+                    self.logger.info(f'{nome} - {data}')
+
+            self.logger.info('PESQUISA NO TICKET360 CONCLUIDA.')
+            return self.eventos
+        except Exception as e:
+            self.logger.error(e)
+            return []
 
 class Ingresse:
     def __init__(self) -> None:
@@ -717,43 +792,47 @@ class Ingresse:
         }
 
     def pesquisar_eventos(self):
-        self.logger.info(f'Pesquisando Eventos em São Paulo no site Ingresse...')
-        # res = rq.get(self.url, headers=self.headers, params=self.payload)
-        # json_res = res.json()
+        try:
+            self.logger.info(f'Pesquisando Eventos em São Paulo no site Ingresse...')
+            # res = rq.get(self.url, headers=self.headers, params=self.payload)
+            # json_res = res.json()
 
-        generos = ['rock', 'pop']
-        
-        for genero in generos:
-            self.logger.info(f'Pesquisando Eventos de {genero}...')
-            eventos = self.generos(genero)
-
-            for evento in eventos:
-                cidade = evento['venues']['city']
-                if cidade != 'São Paulo':
-                    continue
-
-                evento_dict = {
-                    'nome': '',
-                    'local': '',
-                    'dataHora': '',
-                    'genero': '',
-                    'link': '',
-                    'site': 'Ingresse'
-                }
-
-                evento_dict['nome'] = evento['title']
-                evento_dict['local'] = evento['venues']['name']
-                data = evento['event_date'].split('T')[0]
-                evento_dict['dataHora'] = datetime.strftime(datetime.strptime(data, '%Y-%m-%d'), '%d/%m/%Y')
-                evento_dict['genero'] = genero.title()
-                evento_dict['link'] = f"https://ingresse.com/{evento['slug']}/"
-
-                self.eventos.append(evento_dict)
-
-                self.logger.info(evento_dict['nome'])
+            generos = ['rock', 'pop']
             
-        self.logger.info('PESQUISA NO INGRESSE CONCLUIDA.')
-        return self.eventos
+            for genero in generos:
+                self.logger.info(f'Pesquisando Eventos de {genero}...')
+                eventos = self.generos(genero)
+
+                for evento in eventos:
+                    cidade = evento['venues']['city']
+                    if cidade != 'São Paulo':
+                        continue
+
+                    evento_dict = {
+                        'nome': '',
+                        'local': '',
+                        'dataHora': '',
+                        'genero': '',
+                        'link': '',
+                        'site': 'Ingresse'
+                    }
+
+                    evento_dict['nome'] = evento['title']
+                    evento_dict['local'] = evento['venues']['name']
+                    data = evento['event_date'].split('T')[0]
+                    evento_dict['dataHora'] = datetime.strftime(datetime.strptime(data, '%Y-%m-%d'), '%d/%m/%Y')
+                    evento_dict['genero'] = genero.title()
+                    evento_dict['link'] = f"https://ingresse.com/{evento['slug']}/"
+
+                    self.eventos.append(evento_dict)
+
+                    self.logger.info(evento_dict['nome'])
+                
+            self.logger.info('PESQUISA NO INGRESSE CONCLUIDA.')
+            return self.eventos
+        except Exception as e:
+            self.logger.error(e)
+            return []
 
     def generos(self, genero):
         url = 'https://api-site.ingresse.com/categories/filter/events'
@@ -797,50 +876,54 @@ class TicketsForFun:
         }
 
     def pesquisar_eventos(self):
-        self.logger.info(f'Pesquisando Eventos em São Paulo no site TicketsForFun...')
+        try:
+            self.logger.info(f'Pesquisando Eventos em São Paulo no site TicketsForFun...')
 
-        generos = ['pop', 'rock', 'mpb']
+            generos = ['pop', 'rock', 'mpb']
 
-        for genero in generos:
-            self.logger.info(f'Pesquisando Eventos de {genero}...')
+            for genero in generos:
+                self.logger.info(f'Pesquisando Eventos de {genero}...')
 
-            payload = {
-                'url': f'{genero}/São Paulo/null/null'
-            }
+                payload = {
+                    'url': f'{genero}/São Paulo/null/null'
+                }
 
-            res = rq.get(self.url, headers=self.headers, params=payload)
-            json_res = res.json()
-            eventos = json_res['pageProps']['events']
+                res = rq.get(self.url, headers=self.headers, params=payload)
+                json_res = res.json()
+                eventos = json_res['pageProps']['events']
 
-            for evento in eventos:
-                datas = evento['allDates']
-                for data in datas:
-                    evento_dict = {
-                        'nome': '',
-                        'local': '',
-                        'dataHora': '',
-                        'genero': '',
-                        'link': '',
-                        'site': 'TicketsForFun'
-                    }
+                for evento in eventos:
+                    datas = evento['allDates']
+                    for data in datas:
+                        evento_dict = {
+                            'nome': '',
+                            'local': '',
+                            'dataHora': '',
+                            'genero': '',
+                            'link': '',
+                            'site': 'TicketsForFun'
+                        }
 
-                    evento_dict['nome'] = {evento['title']}
-                    evento_dict['local'] = evento['locationName']
-                    evento_dict['genero'] = genero.upper() if genero == 'mpb' else genero.title()
-                    evento_dict['link'] = f'https://sales.ticketsforfun.com.br/#/event/{evento['slug']}'
+                        evento_dict['nome'] = {evento['title']}
+                        evento_dict['local'] = evento['locationName']
+                        evento_dict['genero'] = genero.upper() if genero == 'mpb' else genero.title()
+                        evento_dict['link'] = f'https://sales.ticketsforfun.com.br/#/event/{evento['slug']}'
 
-                    evento_dict['dataHora'] = datetime.strftime(datetime.strptime(data, '%Y-%m-%d %H:%M:%S'), '%d/%m/%Y')
+                        evento_dict['dataHora'] = datetime.strftime(datetime.strptime(data, '%Y-%m-%d %H:%M:%S'), '%d/%m/%Y')
 
-                    nome = f"{evento['title']} - {evento_dict['dataHora']}"
-                    if nome in self.nomes:
-                        continue
+                        nome = f"{evento['title']} - {evento_dict['dataHora']}"
+                        if nome in self.nomes:
+                            continue
 
-                    self.nomes.append(nome)
-                    self.eventos.append(evento_dict)
-                    self.logger.info(nome)
+                        self.nomes.append(nome)
+                        self.eventos.append(evento_dict)
+                        self.logger.info(nome)
 
-        self.logger.info('PESQUISA NO TICKETS FOR FUN CONCLUIDA.')
-        return self.eventos
+            self.logger.info('PESQUISA NO TICKETS FOR FUN CONCLUIDA.')
+            return self.eventos
+        except Exception as e:
+            self.logger.error(e)
+            return []
 
 class TicketsMaster:
     def __init__(self) -> None:
@@ -858,61 +941,65 @@ class TicketsMaster:
         }
 
     def pesquisar_eventos(self):
-        self.logger.info(f'Pesquisando Eventos em São Paulo no site TicketMaster...')
+        try:
+            self.logger.info(f'Pesquisando Eventos em São Paulo no site TicketMaster...')
 
-        res = rq.get(self.url, headers=self.headers)
-        soup = bs(res.text, 'html.parser')
+            res = rq.get(self.url, headers=self.headers)
+            soup = bs(res.text, 'html.parser')
 
-        eventos = soup.find_all('a', {'class': 'grid_element'})
+            eventos = soup.find_all('a', {'class': 'grid_element'})
 
-        for evento in eventos:
-            evento_dict = {
-                'nome': '',
-                'local': '',
-                'dataHora': '',
-                'genero': '',
-                'link': '',
-                'site': 'TicketMaster'
-            }
+            for evento in eventos:
+                evento_dict = {
+                    'nome': '',
+                    'local': '',
+                    'dataHora': '',
+                    'genero': '',
+                    'link': '',
+                    'site': 'TicketMaster'
+                }
 
-            detalhes = evento.find('div', {'class': 'details'})
-            nome_local_data = detalhes.find('h3').text.split(' - ')
-            evento_dict['nome'] = nome_local_data[0].strip()
-            data = ''
+                detalhes = evento.find('div', {'class': 'details'})
+                nome_local_data = detalhes.find('h3').text.split(' - ')
+                evento_dict['nome'] = nome_local_data[0].strip()
+                data = ''
 
-            if len(nome_local_data) > 1:
-                for i, n in enumerate(nome_local_data):
-                    if n.strip() == 'Venda Geral':
-                        continue
-                    try:
-                        data = datetime.strptime(n.strip(), '%d/%m/%Y')
-                    except ValueError:
-                        try:
-                            data = datetime.strptime(n.strip(), '%d/%m/%y')
-                        except ValueError:
-                            if i > 0:
-                                evento_dict['local'] = n.strip()
+                if len(nome_local_data) > 1:
+                    for i, n in enumerate(nome_local_data):
+                        if n.strip() == 'Venda Geral':
                             continue
-                if data == '':
+                        try:
+                            data = datetime.strptime(n.strip(), '%d/%m/%Y')
+                        except ValueError:
+                            try:
+                                data = datetime.strptime(n.strip(), '%d/%m/%y')
+                            except ValueError:
+                                if i > 0:
+                                    evento_dict['local'] = n.strip()
+                                continue
+                    if data == '':
+                        data = detalhes.find('strong').text
+                        data = data.split(' e ')[-1].strip()
+                else:
                     data = detalhes.find('strong').text
                     data = data.split(' e ')[-1].strip()
-            else:
-                data = detalhes.find('strong').text
-                data = data.split(' e ')[-1].strip()
 
-            try:
-                evento_dict['dataHora'] = datetime.strftime(data, '%d/%m/%Y')
-            except TypeError:
-                evento_dict['dataHora'] = convert_to_datetime(data)
+                try:
+                    evento_dict['dataHora'] = datetime.strftime(data, '%d/%m/%Y')
+                except TypeError:
+                    evento_dict['dataHora'] = convert_to_datetime(data)
 
-            link = evento['href'].replace('..', '')
-            evento_dict['link'] = 'https://www.ticketmaster.com.br'+link
+                link = evento['href'].replace('..', '')
+                evento_dict['link'] = 'https://www.ticketmaster.com.br'+link
 
-            self.eventos.append(evento_dict)
-            self.logger.info(evento_dict['nome'])
-        
-        self.logger.info('PESQUISA NO TICKET MASTER CONCLUIDA.')
-        return self.eventos
+                self.eventos.append(evento_dict)
+                self.logger.info(evento_dict['nome'])
+            
+            self.logger.info('PESQUISA NO TICKET MASTER CONCLUIDA.')
+            return self.eventos
+        except Exception as e:
+            self.logger.error(e)
+            return []
     
 class Allianz:
     def __init__(self) -> None:
@@ -1003,49 +1090,53 @@ class Unimed:
         }
         
     def pesquisar_eventos(self):
-        generos = ['mpb', 'pop', 'rock']
+        try:
+            generos = ['mpb', 'pop', 'rock']
 
-        for genero in generos:
-            self.logger.info(f'Pesquisando Eventos de {genero} em São Paulo no site Unimed...')
+            for genero in generos:
+                self.logger.info(f'Pesquisando Eventos de {genero} em São Paulo no site Unimed...')
 
-            sleep(1)
+                sleep(1)
 
-            url = f'https://www.espacounimed.com.br/?p=show&t=agendados&s={genero}&data='
+                url = f'https://www.espacounimed.com.br/?p=show&t=agendados&s={genero}&data='
 
-            res = rq.get(url, headers=self.headers)
-            soup = bs(res.text, 'html.parser')
+                res = rq.get(url, headers=self.headers)
+                soup = bs(res.text, 'html.parser')
 
-            eventos = soup.find_all('div', {'class': 'date-title'})
+                eventos = soup.find_all('div', {'class': 'date-title'})
 
-            genero = genero.upper() if genero == 'mpb' else genero.capitalize()
+                genero = genero.upper() if genero == 'mpb' else genero.capitalize()
 
-            for evento in eventos:
-                evento_dict = {
-                    'nome': '',
-                    'local': 'Espaço Unimed',
-                    'dataHora': '',
-                    'genero': genero,
-                    'link': '',
-                    'site': 'Espaço Unimed'
-                }
+                for evento in eventos:
+                    evento_dict = {
+                        'nome': '',
+                        'local': 'Espaço Unimed',
+                        'dataHora': '',
+                        'genero': genero,
+                        'link': '',
+                        'site': 'Espaço Unimed'
+                    }
 
-                nome = evento.find('h3').find('a')
-                evento_dict['nome'] = nome.text
+                    nome = evento.find('h3').find('a')
+                    evento_dict['nome'] = nome.text
 
-                data = evento.find('span', {'class': 'date'}).text.strip().split('\n')
-                evento_dict['dataHora'] = convert_to_datetime(f'{data[1]} {data[2]}')
+                    data = evento.find('span', {'class': 'date'}).text.strip().split('\n')
+                    evento_dict['dataHora'] = convert_to_datetime(f'{data[1]} {data[2]}')
 
-                evento_dict['link'] = nome['href']
+                    evento_dict['link'] = nome['href']
 
-                if nome.text in self.nomes:
-                    continue
+                    if nome.text in self.nomes:
+                        continue
 
-                self.nomes.append(nome.text)
-                self.eventos.append(evento_dict)
-                self.logger.info(evento_dict['nome'])
+                    self.nomes.append(nome.text)
+                    self.eventos.append(evento_dict)
+                    self.logger.info(evento_dict['nome'])
 
-        self.logger.info('PESQUISA NO ESPACO UNIMED CONCLUIDA.')
-        return self.eventos
+            self.logger.info('PESQUISA NO ESPACO UNIMED CONCLUIDA.')
+            return self.eventos
+        except Exception as e:
+            self.logger.error(e)
+            return self.eventos
     
 class TokioMarine:
     def __init__(self) -> None:
@@ -1063,54 +1154,58 @@ class TokioMarine:
         }
 
     def pesquisar_eventos(self):
-        res = rq.get(self.url, headers=self.headers)
-        soup = bs(res.text, 'html.parser')
+        try:
+            res = rq.get(self.url, headers=self.headers)
+            soup = bs(res.text, 'html.parser')
 
-        eventos = soup.find_all('div', {'class': 'esg-media-cover-wrapper'})
+            eventos = soup.find_all('div', {'class': 'esg-media-cover-wrapper'})
 
-        for evento in eventos:
-            lista_datas = []
-            evento_dict = {
-                'nome': '',
-                'local': 'Tokio Marine Hall',
-                'dataHora': '',
-                'genero': '',
-                'link': '', 
-                'site': 'Tokio Marine Hall'
-            }
+            for evento in eventos:
+                lista_datas = []
+                evento_dict = {
+                    'nome': '',
+                    'local': 'Tokio Marine Hall',
+                    'dataHora': '',
+                    'genero': '',
+                    'link': '', 
+                    'site': 'Tokio Marine Hall'
+                }
 
-            tags = evento.find_all('a')
+                tags = evento.find_all('a')
 
-            nome = tags[2]
-            evento_dict['nome'] = nome.text
-            evento_dict['link'] = nome['href']
+                nome = tags[2]
+                evento_dict['nome'] = nome.text
+                evento_dict['link'] = nome['href']
 
-            sleep(1)
-            res2 = rq.get(evento_dict['link'], headers=self.headers)
-            soup2 = bs(res2.text, 'html.parser')
-            tag_genero = soup2.find_all('div', {'class': 'wpb_raw_code wpb_content_element wpb_raw_html tags-shows-detalhes'})[1]
-            genero = tag_genero.text.replace('Gênero Musical', '').strip()
-            evento_dict['genero'] = genero
+                sleep(1)
+                res2 = rq.get(evento_dict['link'], headers=self.headers)
+                soup2 = bs(res2.text, 'html.parser')
+                tag_genero = soup2.find_all('div', {'class': 'wpb_raw_code wpb_content_element wpb_raw_html tags-shows-detalhes'})[1]
+                genero = tag_genero.text.replace('Gênero Musical', '').strip()
+                evento_dict['genero'] = genero
 
-            if genero not in ['MPB', 'Pop', 'Rock']:
-                continue
+                if genero not in ['MPB', 'Pop', 'Rock']:
+                    continue
 
-            datas1 = tags[3].text.strip().split('|')
-            for data1 in datas1:
-                dias = data1.strip().split(' de ')[0].split(' e ')
-                mes = data1.strip().split(' de ')[1].split(' às ')[0][:3]
-                for dia in dias:
-                    data = f'{dia.replace(',', '')} {mes.replace(',', '')}'
-                    lista_datas.append(data)
+                datas1 = tags[3].text.strip().split('|')
+                for data1 in datas1:
+                    dias = data1.strip().split(' de ')[0].split(' e ')
+                    mes = data1.strip().split(' de ')[1].split(' às ')[0][:3]
+                    for dia in dias:
+                        data = f'{dia.replace(',', '')} {mes.replace(',', '')}'
+                        lista_datas.append(data)
 
-            for data in lista_datas:
-                evento_dict['dataHora'] = convert_to_datetime(data)
+                for data in lista_datas:
+                    evento_dict['dataHora'] = convert_to_datetime(data)
 
-                self.eventos.append(evento_dict)
-                self.logger.info(f"{evento_dict['nome']} - {evento_dict['dataHora']}")
+                    self.eventos.append(evento_dict)
+                    self.logger.info(f"{evento_dict['nome']} - {evento_dict['dataHora']}")
 
-        self.logger.info('PESQUISA NO TOKIO MARINE HALL CONCLUIDA.')
-        return self.eventos
+            self.logger.info('PESQUISA NO TOKIO MARINE HALL CONCLUIDA.')
+            return self.eventos
+        except Exception as e:
+            self.logger.error(e)
+            return self.eventos
 
 class CafePiuPiu:
     def __init__(self) -> None:
@@ -1129,59 +1224,81 @@ class CafePiuPiu:
         }
 
     def pesquisar_eventos(self):
-        self.logger.info('INICIANDO PESQUISA NO CAFE PIUPIU...')
-        res = rq.get(self.url+self.index, headers=self.headers)
-        soup = bs(res.text, 'html.parser')
+        try:
+            self.logger.info('INICIANDO PESQUISA NO CAFE PIUPIU...')
+            res = rq.get(self.url+self.index, headers=self.headers)
+            soup = bs(res.text, 'html.parser')
 
-        menu = soup.find('ul', {'class': 'menu'})
-        agenda = menu.find_all('li')[1].find('a')['href']
-        link = f'{self.url}{agenda}'
+            menu = soup.find('ul', {'class': 'menu'})
+            agenda = menu.find_all('li')[1].find('a')['href']
+            link = f'{self.url}{agenda}'
 
-        sleep(1)
-
-        res2 = rq.get(link, headers=self.headers)
-        soup2 = bs(res2.text, 'html.parser')
-
-        eventos = soup2.find_all('a', {'class': 'grupo-evento'})
-
-        for evento in eventos:
             sleep(1)
-            evento_dict = {
-                'nome': '',
-                'local': 'Café Piupiu',
-                'dataHora': '',
-                'genero': '',
-                'link': '', 
-                'site': 'Café Piupiu'
-            }
 
-            nome = evento.find('h4', {'class': 'titulo-evento'})
-            evento_dict['nome'] = nome.text
-            evento_dict['link'] = self.url+evento['href']
+            res2 = rq.get(link, headers=self.headers)
+            soup2 = bs(res2.text, 'html.parser')
 
-            form_data = evento['href'].split('.')[0]
-            dia = form_data[:2]
-            mes = form_data[2:4]
-            ano = form_data[4:]
-            data = f'{dia}/{mes}/{ano}'
-            evento_dict['dataHora'] = data
+            eventos = soup2.find_all('a', {'class': 'grupo-evento'})
 
-            res3 = rq.get(evento_dict['link'], headers=self.headers)
-            soup3 = bs(res3.text, 'html.parser')
+            total_tokens = 0
 
-            descricao = soup3.find('p', {'class': 'descricao'}).text
-            evento_genero = definir_genero(nome, descricao)
-            if evento_genero.lower() == 'outro':
-                continue
+            for e, evento in enumerate(eventos):
+                sleep(2)
 
-            evento_dict['genero'] = evento_genero
+                if total_tokens > 90000:
+                    break
 
-            self.eventos.append(evento_dict)
-            self.logger.info(f"{evento_dict['nome']} - {evento_dict['dataHora']}")
+                # if e == 200:
+                #     break
 
-        self.logger.info('PESQUISA NO CAFÉ PIUPIU CONCLUIDA.')
-        return self.eventos
+                evento_dict = {
+                    'nome': '',
+                    'local': 'Café Piupiu',
+                    'dataHora': '',
+                    'genero': '',
+                    'link': '', 
+                    'site': 'Café Piupiu'
+                }
 
+                nome = evento.find('h4', {'class': 'titulo-evento'})
+                evento_dict['nome'] = nome.text
+                evento_dict['link'] = self.url+evento['href']
+
+                form_data = evento['href'].split('.')[0]
+                dia = form_data[:2]
+                mes = form_data[2:4]
+                ano = form_data[4:]
+                data = f'{dia}/{mes}/{ano}'
+                evento_dict['dataHora'] = data
+
+                res3 = rq.get(evento_dict['link'], headers=self.headers)
+                soup3 = bs(res3.text, 'html.parser')
+
+                descricao = soup3.find('p', {'class': 'descricao'}).text
+                if len(descricao) >= 1500:
+                    descricao = descricao[:1500]
+
+                dados_genero = groq.definir_genero(evento_dict['nome'], descricao)
+                evento_genero = dados_genero[0]
+                tokens = dados_genero[1]
+
+                total_tokens += tokens
+
+                evento['genero'] = evento_genero
+
+                if evento_genero not in generos:
+                    continue
+
+                evento_dict['genero'] = evento_genero
+
+                self.eventos.append(evento_dict)
+                self.logger.info(f"{evento_dict['nome']} - {evento_dict['dataHora']}")
+
+            self.logger.info('PESQUISA NO CAFÉ PIUPIU CONCLUIDA.')
+            return self.eventos
+        except Exception as e:
+            self.logger.error(e)
+            return self.eventos
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()])
@@ -1217,11 +1334,11 @@ if __name__ == '__main__':
     # unimed = Unimed()
     # pprint(unimed.pesquisar_eventos())
 
-    tokio = TokioMarine()
-    pprint(tokio.pesquisar_eventos())
+    # tokio = TokioMarine()
+    # pprint(tokio.pesquisar_eventos())
 
-    # cafepiupiu = CafePiuPiu()
-    # pprint(cafepiupiu.pesquisar_eventos())
+    cafepiupiu = CafePiuPiu()
+    pprint(cafepiupiu.pesquisar_eventos())
 
 # Gêneros:
 # Shows Internacionais

@@ -19,7 +19,7 @@ from email.utils import formataddr
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('log.log'), logging.StreamHandler()])
 
 class GmailSenderAPI:
-    def __init__(self, excel_bytes, filename, token_ref, emails_ref):
+    def __init__(self, excel_bytes, filename, token_ref, emails_ref, client_ref):
         self.logger = logging.getLogger(__name__)
 
         self.SCOPES = [
@@ -33,6 +33,7 @@ class GmailSenderAPI:
         self.service = None
         self.excel_bytes = excel_bytes
         self.filename = filename
+        self.client_ref = client_ref
 
     def load_credentials(self):
         token_info = self.token_ref.get().to_dict()
@@ -57,9 +58,11 @@ class GmailSenderAPI:
         #     creds = Credentials.from_authorized_user_file(self.token_file, self.SCOPES)
         
         def logar():
-            flow = InstalledAppFlow.from_client_secrets_file(
-                self.credentials_file, self.SCOPES)
+            client_info = self.client_ref.get().to_dict()
+            flow = InstalledAppFlow.from_client_config(
+                client_info, self.SCOPES)
             creds = flow.run_local_server(port=0)
+            # creds = Credentials.from_authorized_user_info(client_info, scopes=self.SCOPES)
             return creds
 
         # Se não há credenciais válidas, faz login
@@ -164,8 +167,8 @@ class GmailSenderAPI:
         return None
     
 # Exemplo de uso da API
-def main_api(excel_bytes, nome_planilha, token_ref, emails_ref):
-    gmail_api = GmailSenderAPI(excel_bytes, nome_planilha, token_ref, emails_ref)
+def main_api(excel_bytes, nome_planilha, token_ref, emails_ref, client_ref):
+    gmail_api = GmailSenderAPI(excel_bytes, nome_planilha, token_ref, emails_ref, client_ref)
     
     if gmail_api.authenticate():
         gmail_api.enviar_email()

@@ -85,7 +85,7 @@ class Shows:
         cafepiupiu = self.cafe_piupiu.pesquisar_eventos()
         tokiomarine = self.tokio_marine.pesquisar_eventos()
 
-        self.eventos = sympla + clube + uhuu + eventim + ticket360 + ingresse + ticketsforfun + cafepiupiu + tokiomarine
+        self.eventos = sympla + eventim + clube + uhuu + ticket360 + ingresse + ticketsforfun + cafepiupiu + tokiomarine
 
         self.logger.info('PESQUISA FINALIZADA.')
         return self.eventos
@@ -108,9 +108,9 @@ class Shows:
 
         return df
     
-    def enviar_email(self, excel_bytes, token_ref, emails_ref):
+    def enviar_email(self, excel_bytes, token_ref, emails_ref, client_ref):
         nome = self.nome_planilha()
-        main_api(excel_bytes, nome, token_ref, emails_ref)
+        main_api(excel_bytes, nome, token_ref, emails_ref, client_ref)
         self.logger.info(f'Email enviado.')
 
 
@@ -122,7 +122,8 @@ if __name__ == '__main__':
     db = shows.get_db()
     token_ref = db.collection('streamlit_secrets').document('cnXygf2mVmWqJwvmgQH2')
     emails_ref = db.collection('streamlit_secrets').document('emails_json')
-    shows.enviar_email(excel_bytes, token_ref, emails_ref)
+    client_ref = db.collection('streamlit_secrets').document('client_secret')
+    shows.enviar_email(excel_bytes, token_ref, emails_ref, client_ref)
 
 
 'fel.cav.lima@gmail.com'
