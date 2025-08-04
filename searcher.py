@@ -4,6 +4,7 @@ from langchain_core.output_parsers import StrOutputParser
 import os
 from dotenv import load_dotenv
 from time import sleep
+import streamlit as st
 
 
 class Groq:
@@ -11,10 +12,11 @@ class Groq:
         key = os.getenv('GROQ_API_KEY')
 
         if not key:
-            load_dotenv('data/.env')
-            key = os.getenv('GROQ_API_KEY')    
+            key = st.secrets['GROQ_API_KEY']
 
-        chat = ChatGroq(model='meta-llama/llama-4-scout-17b-16e-instruct', max_tokens=5, temperature=0.1)
+        model = 'meta-llama/llama-4-scout-17b-16e-instruct' # Principal
+        # model = 'llama3-70b-8192' # Teste
+        chat = ChatGroq(model=model, max_tokens=5, temperature=0.1, api_key=key)
 
         prompt = ChatPromptTemplate.from_messages([
             ('system', 'O nome e a descrição de um espetáculo musical serão fornecidos. Responda apenas um gênero musical específico entre: (Rock Nacional, Rock Internacional, Pop Nacional, Pop Internacional e MPB). Caso não seja nenhum destes, retorne "outro".'),
@@ -32,11 +34,11 @@ class Groq:
         return [genero, total_tokens]
 
 if __name__ == '__main__':
-    nome = 'LAUANA PRADO RAIZ - SÃO PAULO/SP'
+    nome = ' 21h30 • ROCK • DIRE STRAITS EXPERIENCE by GUI CICARELLI '
     descricao = """
-CENTENÁRIO SMCC – UMA NOITE PARA FICAR NA HISTÓRIA!
-Chegou em São Paulo a festa mais RAIZ do Brasil! Agora o petêco vai cair a foia! Prepare-se para uma experiência única, comandada por Lauana Prado com muita moda boa.  
-Só pra quem é raiz de verdade!  
+Uma noite com os clássicos do Dire Straits!
+Prepare-se para uma noite inesquecível no palco do Bourbon Street Music Club! Os grandes clássicos do Dire Straits ganham vida em um show eletrizante com Gui Cicarelli e sua banda, recriando toda a atmosfera e sonoridade que marcaram gerações. 
+Com interpretações fiéis e emocionantes, o espetáculo Dire Straits Experience traz sucessos como Sultans of Swing, Money for Nothing, Brothers in Arms, Romeo and Juliet e muito mais — em uma homenagem impecável à genialidade de Mark Knopfler e sua icônica banda britânica.
 """
 
     groq = Groq()

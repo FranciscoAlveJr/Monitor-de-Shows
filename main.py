@@ -1,4 +1,4 @@
-from scraping import ClubdoIngresso, Uhuu, Sympla, Eventim, Ticket360, Ingresse, TicketsForFun, CafePiuPiu, TokioMarine
+from scraping import ClubdoIngresso, Uhuu, Sympla, Eventim, Ticket360, Ingresse, TicketsForFun, CafePiuPiu, TokioMarine, TicketsMaster, BourbonStreet
 import pandas as pd
 import logging
 from send_gmail import main_api
@@ -24,10 +24,12 @@ class Shows:
         self.uhuu = Uhuu(todos)
         self.sympla = Sympla(genero, todos)
         self.ticket360 = Ticket360(genero, todos)
-        self.ingresse = Ingresse()
-        self.ticketsforfun = TicketsForFun()
-        self.cafe_piupiu = CafePiuPiu()
-        self.tokio_marine = TokioMarine()
+        self.ingresse = Ingresse(todos, genero)
+        self.ticketsforfun = TicketsForFun(genero, todos)
+        self.cafe_piupiu = CafePiuPiu(genero, todos)
+        self.tokio_marine = TokioMarine(genero, todos)
+        self.tickets_master = TicketsMaster(genero, todos)
+        self.bourbon_street = BourbonStreet(genero, todos)
 
     def nome_planilha(self):
         data = datetime.now().strftime('%H%M%S%d%m%Y')
@@ -80,12 +82,14 @@ class Shows:
         clube = self.clube.pesquisar_eventos(self.genero, self.locais, self.data)
         uhuu = self.uhuu.pesquisar_eventos(self.genero, self.locais, self.data)
         ticket360 = self.ticket360.pesquisar_eventos(self.locais, self.data)
-        ingresse = self.ingresse.pesquisar_eventos()
-        ticketsforfun = self.ticketsforfun.pesquisar_eventos()
-        cafepiupiu = self.cafe_piupiu.pesquisar_eventos()
-        tokiomarine = self.tokio_marine.pesquisar_eventos()
+        ingresse = self.ingresse.pesquisar_eventos(self.locais, self.data)
+        ticketsforfun = self.ticketsforfun.pesquisar_eventos(self.locais, self.data)
+        cafepiupiu = self.cafe_piupiu.pesquisar_eventos(self.locais, self.data)
+        tokiomarine = self.tokio_marine.pesquisar_eventos(self.locais, self.data)
+        tickets_master = self.tickets_master.pesquisar_eventos(self.locais, self.data)
+        bourbon_street = self.bourbon_street.pesquisar_eventos(self.locais, self.data)
 
-        self.eventos = sympla + eventim + clube + uhuu + ticket360 + ingresse + ticketsforfun + cafepiupiu + tokiomarine
+        self.eventos = sympla + eventim + clube + uhuu + ticket360 + ingresse + ticketsforfun + cafepiupiu + tokiomarine + tickets_master + bourbon_street
 
         self.logger.info('PESQUISA FINALIZADA.')
         return self.eventos
