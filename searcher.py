@@ -9,7 +9,7 @@ import streamlit as st
 
 class Groq:
     def __init__(self):
-        key = os.getenv('GROQ_API_KEY')
+        key = os.getenv('groq_api_key')
 
         if not key:
             key = st.secrets['GROQ_API_KEY']
