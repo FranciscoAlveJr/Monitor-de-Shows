@@ -15,10 +15,10 @@ Para fazer a pesquisa, o usuário pode escolher definir filtros por:
 ### Gênero
 Pode escolher um gênero específico, podendo escolher apenas um. Somente eventos do gênero escolhido serão apresentados na tabela e no arquivo `.xlsx`. Como nem todos os sites dividem os eventos por gênero, é usado um agente de IA simples que refina a pesquisa, usando como parâmetros o título e a descrição do evento.
 ### Local
-Já o local e a data não são obrigatórios, sendo da escolha do usuário filtrar por eles ou não.<br>
+Já a escolha do local não é obrigatória, sendo da opção do usuário filtrar por eles ou não.<br>
 Ao optar por filtrar por local, é possível fazer escolha múltipla, onde o usuário pode escolher mais de uma opção.<br>
 ### Data
-O filtro por data é feito no intervalo entre duas datas. Basta escolher a primeira data e, logo após, a segunda, o sistema retornará apenas os eventos contidos entre essas datas. Por padrão, a primeira data é o dia atual.
+O filtro por data é feito no intervalo entre duas datas. Basta escolher a primeira data e, logo após, a segunda, o sistema retornará apenas os eventos contidos entre essas datas. Por padrão, a primeira data é o dia atual. Se o usuário não escolher a segunda data, o sistema entenderá que ele quer qualquer data à partir da atual.
 <br>
 <br>
 >[!NOTE]
@@ -54,3 +54,8 @@ As seguintes tecnologias foram utilizadas na produção deste sistema:
 - Langchain - Agente de IA
 - GCP/Firebase - Deploy de credenciais
 - GitHub Actions - Entrega e implantação remota
+
+<br>
+
+>[!NOTE]
+>Todos os dados sensíveis, chaves de API, credenciais e afins foram devidamente salvos em locais seguros, seja na parte de *Secrets* do Streamlit, quanto nos *Secrets* do GitHub Actions.
