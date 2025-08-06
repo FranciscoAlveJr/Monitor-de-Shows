@@ -1,4 +1,4 @@
-# Monitor de Show
+# Monitor de Shows
 MVP (Model-View-Presenter) que visa monitorar os eventos que ocorrem na cidade de São Paulo. Usando agente de IA para refinar os filtros por gênero.
 
 O projeto é dividido em duas partes:
