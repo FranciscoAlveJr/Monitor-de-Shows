@@ -1,61 +1,97 @@
-# Monitor de Shows
-MVP (Model-View-Presenter) que visa monitorar os eventos que ocorrem na cidade de São Paulo. Usando agente de IA para refinar os filtros por gênero.
+# 🎵 Monitor de Shows SP - Inteligência Artificial & RPA
 
-O projeto é dividido em duas partes:
-- **A interface de usuário**, feito em **Streamlit**, onde o usuário pode realizar pesquisas dos eventos do momento em sites de venda ingresso, casas de show e bares, podendo aplicar filtros de acordo com o gênero, o local e a data. Também é possível cadastrar um e-mail para receber os resultados semanalmente.
-- **Pesquisa automática**, em que o usuário, com o e-mail cadastrado, receberá semanalmente os resultados em formato Excel.
+Este projeto é um **MVP (Minimum Viable Product)** focado na engenharia de dados e automação para monitorar, centralizar e classificar eventos culturais e musicais na cidade de São Paulo. 
 
-## Interface
-Aqui o usuário tem a opção de fazer uma pesquisa que, ao final, retornará uma tabela e um arquivo em `.xlsx` para fazer o download.
-Para fazer a pesquisa, o usuário pode escolher definir filtros por:
-- Gênero
-- Local
-- Data
+O ecossistema realiza web scraping em mais de 10 plataformas de ingressos, utiliza **Agentes de IA (LangChain)** para classificação inteligente de gêneros musicais e distribui relatórios analíticos formatados. A aplicação é dividida entre um portal analítico interativo e um pipeline assíncrono de disparos semanais automatizados.
 
-### Gênero
-Pode escolher um gênero específico, podendo escolher apenas um. Somente eventos do gênero escolhido serão apresentados na tabela e no arquivo `.xlsx`. Como nem todos os sites dividem os eventos por gênero, é usado um agente de IA simples que refina a pesquisa, usando como parâmetros o título e a descrição do evento.
-### Local
-Já a escolha do local não é obrigatória, sendo da opção do usuário filtrar por eles ou não.<br>
-Ao optar por filtrar por local, é possível fazer escolha múltipla, onde o usuário pode escolher mais de uma opção.<br>
-### Data
-O filtro por data é feito no intervalo entre duas datas. Basta escolher a primeira data e, logo após, a segunda, o sistema retornará apenas os eventos contidos entre essas datas. Por padrão, a primeira data é o dia atual. Se o usuário não escolher a segunda data, o sistema entenderá que ele quer qualquer data à partir da atual.
-<br>
-<br>
->[!NOTE]
->Os dados da pesquisa por filtros serão retornados apenas na interface, com a tabela, que aparece na tela à direita, e na planilha Excel para download. Isso não interfare na pesquisa automática semanal
+---
 
-## Pesquisa Automática
-Toda semana (terças e sextas) o sistema irá fazer uma pesquisa pelos eventos em São Paulo. <br>
-Diferente da pesquisa via interface, o sistema faz a pesquisa com menos filtros, o que demanda muito mais tempo para executar.
-Aqui também é utilizado o agente de IA para filtrar os gêneros, porém, diferentemente da interface, aqui o filto é feito de maneira mais ampla, abrangendo cinco gêneros, sendo que, se o gênero do evento não estiver entre os cinco, ele não é escolhido.
+## 📐 Arquitetura do Ecossistema
 
-Após executar a pesquisa em todos sites de venda de ingresso, o sistema envia um alerta, via e-mail, para o usuário, contendo, em anexo, o arquivo em `.xlsx` com todos os eventos encontrados
+```text
+[Web Scraping: 11 Portais] ➔ [Pipeline de Ingestão / Requests & BS4]
+                                            │
+                                 [Filtro Semântico / LangChain LLM]
+                                            │
+               ┌────────────────────────────┴────────────────────────────┐
+               ▼                                                         ▼
+    [Interface Interativa]                                    [Pipeline Assíncrono]
+    - Frontend Streamlit                                      - Execução Cron (Ter/Sex)
+    - Filtros em Tempo Real (Pandas)                          - Orquestração: GitHub Actions
+    - Download de Relatório .xlsx                             - Disparo de E-mails com Anexos
+```
 
-## Sites pesquisados
-Os seguintes sites serviram como base de pesquisa, tudo dentro dos limites de requisição das mesmas:
-- [Sympla](https://www.sympla.com.br)
-- [Clube do Ingresso](https://www.clubedoingresso.com)
-- [Uhuu](https://uhuu.com)
-- [Eventim](https://www.eventim.com.br/)
-- [Ticket360](https://www.ticket360.com.br)
-- [Ingresse](https://www.ingresse.com/)
-- [Tickets For Fun](https://www.ticketsforfun.com.br)
-- [Tickets Master](https://www.ticketmaster.com.br)
-- [Tokio Marine Hall](https://www.tokiomarinehall.com.br)
-- [Cafe Piu Piu](http://cafepiupiu.com.br)
-- [Bourbon Street](https://www.bourbonstreet.com.br)
+---
 
-## Especificações Técnicas
-As seguintes tecnologias foram utilizadas na produção deste sistema:
-- Python
-- Streamlit - Interface Web
-- Pandas - Tratamento de dados
-- Requests/BeautifulSoup - Web Scraping
-- Langchain - Agente de IA
-- GCP/Firebase - Deploy de credenciais
-- GitHub Actions - Entrega e implantação remota
+## 🛠️ Tecnologias e Infraestrutura
 
-<br>
+* **Python** - Linguagem core de desenvolvimento.
+* **Streamlit** - Frontend interativo para o portal de dados e visualização em tempo real.
+* **LangChain** - Orquestração do Agente de IA para processamento de linguagem natural (NLP) e classificação de gêneros.
+* **Pandas** - Manipulação, tratamento, filtragem e estruturação dos dados coletados.
+* **Requests / BeautifulSoup4** - Motores de extração e web scraping para coleta de dados textuais e metadados.
+* **Docker** - Containerização da aplicação para garantia de paridade de ambientes.
+* **GCP / Firebase** - Hospedagem da aplicação, nuvem computacional e gerenciamento de credenciais.
+* **GitHub Actions** - Engine de CI/CD responsável pelo deploy automatizado e pelo agendamento (*Cron Job*) da rotina de disparos semanais.
 
->[!NOTE]
->Todos os dados sensíveis, chaves de API, credenciais e afins foram devidamente salvos em locais seguros, seja na parte de *Secrets* do Streamlit, quanto nos *Secrets* do GitHub Actions.
+---
+
+## 💻 Módulos do Sistema
+
+### 1️⃣ Interface do Usuário (Portal Web Streamlit)
+Oferece um painel dinâmico onde o usuário consulta o inventário de eventos unificado, permitindo a aplicação de filtros em tempo real e geração de relatórios `.xlsx` sob demanda.
+
+* **Filtro por Gênero (IA):** Como os portais de origem não possuem padronização de tags, um Agente de IA analisa semanticamente o título e a descrição do evento para determinar o gênero musical exato.
+* **Filtro por Local:** Permite seleção múltipla de casas de show, arenas e bares mapeados.
+* **Filtro por Data:** Implementação de intervalo temporal dinâmico (*Date Range*) que assume o dia atual como ponto de partida padrão.
+
+> 💡 *Nota: As consultas realizadas via interface geram outputs em tempo real baseados em DataFrames do Pandas e não interferem na esteira de processamento agendada.*
+
+### 2️⃣ Pipeline de Pesquisa Automática (Orquestração Batch)
+Uma esteira assíncrona executada de forma automatizada duas vezes por semana (terças e sextas-feiras) via rotina programada.
+
+* O sistema realiza uma varredura massiva de baixa granularidade para capturar o maior volume de dados possível.
+* O Agente de IA atua de forma preditiva, filtrando e validando se os eventos mapeados pertencem ao escopo estratégico dos 5 gêneros principais da plataforma.
+* Após a conclusão e higienização dos dados com Pandas, a aplicação se conecta a um servidor SMTP para disparar relatórios analíticos em formato Excel diretamente para o e-mail dos usuários cadastrados.
+
+---
+
+## 🌐 Escopo de Coleta (Fontes de Dados Mapeadas)
+
+A esteira de robôs foi construída respeitando as boas práticas de requisições HTTP, realizando a extração de dados nos seguintes portais:
+
+* [Sympla](https://www.sympla.com.br)
+* [Clube do Ingresso](https://www.clubedoingresso.com)
+* [Uhuu](https://uhuu.com)
+* [Eventim](https://www.eventim.com.br/)
+* [Ticket360](https://www.ticket360.com.br)
+* [Ingresse](https://www.ingresse.com/)
+* [Tickets For Fun](https://www.ticketsforfun.com.br)
+* [Tickets Master](https://www.ticketmaster.com.br)
+* [Tokio Marine Hall](https://www.tokiomarinehall.com.br)
+* [Cafe Piu Piu](http://cafepiupiu.com.br)
+* [Bourbon Street](https://www.bourbonstreet.com.br)
+
+---
+
+## 🔒 Segurança e Gestão de Credenciais
+
+Em conformidade com as boas práticas de segurança e governança de dados, nenhuma chave de API, credencial de servidor SMTP ou token de acesso está exposto no código-fonte. 
+
+* As variáveis de ambiente de produção são injetadas em tempo de execução através do **Streamlit Secrets Manager** e criptografadas no cofre de dados do **GitHub Actions Secrets** para a esteira de CI/CD.
+
+---
+
+## ⚙️ Como Executar o Projeto Localmente
+
+```bash
+# 1. Clone o repositório
+git clone [https://github.com/FranciscoAlveJr/monitor-shows.git](https://github.com/FranciscoAlveJr/monitor-shows.git)
+
+# 2. Acesse o diretório
+cd monitor-shows
+
+# 3. Certifique-se de configurar suas variáveis de ambiente (.env) e execute via Docker
+docker build -t monitor-shows .
+docker run -p 8501:8501 monitor-shows
+```
